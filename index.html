@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VAPE BAR 2.0</title>
+    
+    <!-- PWA ТЕГИ -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e60000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div class="header">
+        <h1>VAPE <span>BAR</span> <small style="font-size: 14px; color: white; vertical-align: top;">2.0</small></h1>
+    </div>
+
+    <nav class="tab-bar">
+        <button class="tab-btn active" onclick="showTab('catalog', this)"><i class="fa-solid fa-box-open"></i></button>
+        <button class="tab-btn" onclick="showTab('cart', this)">
+            <i class="fa-solid fa-cart-shopping"></i>
+            <span id="badge" class="hidden">0</span>
+        </button>
+        <button class="tab-btn" onclick="showTab('profile', this)"><i class="fa-solid fa-user"></i></button>
+        <button class="tab-btn hidden" id="admin-btn" onclick="showTab('admin', this)"><i class="fa-solid fa-gear"></i></button>
+    </nav>
+
+    <section id="catalog-tab" class="tab-content active">
+        <div class="cat-nav">
+            <button class="c-btn active" onclick="filterCat('Все', this)">Все</button>
+            <button class="c-btn" onclick="filterCat('Одноразки', this)">Одноразки</button>
+            <button class="c-btn" onclick="filterCat('Жидкости', this)">Жидкости</button>
+            <button class="c-btn" onclick="filterCat('Устройства', this)">Устройства</button>
+            <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
+        </div>
+        <div id="product-grid" class="grid"></div>
+    </section>
+
+    <section id="cart-tab" class="tab-content">
+        <h2 class="page-title">Ваша Корзина</h2>
+        <div id="cart-list" class="grid"></div>
+        <div class="cart-footer">
+            <div class="total-row"><span>Итого:</span><h3 id="total-price">0 ₽</h3></div>
+            <button class="order-btn" onclick="openCheckout()">Оформить заказ</button>
+        </div>
+    </section>
+
+    <section id="checkout-tab" class="tab-content">
+        <h2 class="page-title">Оформление</h2>
+        <div class="info-card" style="margin-bottom: 20px;">
+            <div class="form-group">
+                <label>Способ получения:</label>
+                <select id="co-delivery" class="form-input" onchange="toggleDelivery()">
+                    <option value="Доставка">Доставка</option>
+                    <option value="Самовывоз">Самовывоз</option>
+                </select>
+            </div>
+            <div class="form-group" id="address-group">
+                <label>Точный адрес доставки:</label>
+                <input type="text" id="co-address" class="form-input" placeholder="Улица, дом, квартира">
+            </div>
+            <div class="form-group">
+                <label>Желаемая дата и время:</label>
+                <input type="text" id="co-datetime" class="form-input" placeholder="Например: Сегодня в 19:30">
+            </div>
+            <div class="form-group">
+                <label>Номер телефона для связи:</label>
+                <input type="tel" id="co-phone" class="form-input" placeholder="+7 (999) 000-00-00">
+            </div>
+            <div class="form-group">
+                <label>Способ оплаты:</label>
+                <select id="co-payment" class="form-input">
+                    <option value="Перевод (СБП)">Перевод на карту (СБП)</option>
+                    <option value="Наличные">Наличными при получении</option>
+                </select>
+            </div>
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="co-age">
+                <label for="co-age">Подтверждаю, что мне есть 18 лет</label>
+            </div>
+            <div class="form-group checkbox-group" id="bonus-group">
+                <input type="checkbox" id="co-bonuses">
+                <label for="co-bonuses">Списать бонусы (<span id="co-bonus-count" style="color:#e60000; font-weight:bold;">0</span>)</label>
+            </div>
+            <button class="order-btn" onclick="submitCheckout()" style="margin-top: 20px;">Подтвердить заказ</button>
+            <button class="c-btn" onclick="backToCart()" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #1f1f2e; color: #a09090;">Назад в корзину</button>
+        </div>
+    </section>
+
+    <section id="profile-tab" class="tab-content">
+        <h2 class="page-title">Мой Кабинет</h2>
+        <div class="profile-main-card">
+            <div class="profile-header-new">
+                <div class="avatar-container">
+                    <img id="u-avatar" src="" alt="Avatar" style="display: none;">
+                    <div id="u-avatar-fallback">👤</div>
+                </div>
+                <div class="profile-info-new">
+                    <h3 id="u-name">Загрузка...</h3>
+                    <p id="u-id">ID: ---</p>
+                    <div class="vip-badge" id="u-vip">---</div>
+                </div>
+            </div>
+            <div class="profile-stats-grid">
+                <div class="stat-box">
+                    <span>Сумма покупок</span>
+                    <b id="u-spent">0 ₽</b>
+                    <small id="u-next-lvl">Загрузка...</small>
+                </div>
+                <div class="stat-box accent-box">
+                    <span>Бонусы</span>
+                    <b id="u-bonuses">0 ₽</b>
+                    <small id="u-cb">Кэшбек: 0%</small>
+                </div>
+            </div>
+        </div>
+        <h3 class="sub-title">🤝 Реферальная программа</h3>
+        <div class="info-card">
+            <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px;">
+                Приглашайте друзей и получайте <b>5%</b> бонусами от суммы каждого их завершенного заказа!
+            </p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #1f1f2e;">
+                <span style="color: white; font-size: 14px;">Вы пригласили:</span>
+                <b id="u-refs" style="font-size: 18px; color: var(--accent);">0 чел.</b>
+            </div>
+            <label style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Ваша ссылка для приглашения:</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="u-ref-link" class="form-input" readonly style="color: #e60000; font-size: 13px; flex: 1;">
+                <button onclick="copyRefLink()" style="background: var(--accent); border: none; border-radius: 12px; width: 45px; color: white; cursor: pointer; transition: 0.2s;"><i class="fa-regular fa-copy"></i></button>
+            </div>
+        </div>
+    </section>
+
+<section id="admin-tab" class="tab-content">
+        <h2 class="page-title">⚙️ Управление</h2>
+        
+        <div class="cat-nav" style="margin-bottom: 20px;">
+            <button class="c-btn active" id="btn-adm-prod" onclick="loadAdminProducts()">📦 Товары</button>
+            <button class="c-btn" id="btn-adm-stat" onclick="loadAdminStats()">📊 Статистика</button>
+            <button class="c-btn" id="btn-adm-ord" onclick="loadAdminOrders()">🛒 Заказы</button>
+            <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()">👥 Клиенты</button>
+        </div>
+
+        <div id="admin-workspace">
+            <p style="text-align:center; color:var(--gray);">Загрузка панели...</p>
+        </div>
+    </section>
+
+    <div id="flavor-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="modal-title">Выберите вкус</h3>
+            <div id="flavor-list" class="flavor-grid"></div>
+            <button class="close-btn" onclick="closeModal()">Отмена</button>
+        </div>
+    </div>
+    
+    <div id="product-modal" class="modal-overlay hidden">
+        <div class="modal-content product-details-modal">
+            <button class="close-btn top-close" onclick="closeProductModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="pm-image-container"></div>
+            <h3 id="pm-title">Название товара</h3>
+            <p id="pm-category" class="pm-cat-label">Категория</p>
+            <p id="pm-desc" class="pm-description"></p>
+            <div class="pm-footer">
+                <h2 id="pm-price">0 ₽</h2>
+                <button id="pm-add-btn" class="order-btn pm-add">В корзину</button>
+            </div>
+        </div>
+    </div>
+<!-- ОКНА АДМИНКИ -->
+    <div id="adm-add-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
+            <input type="text" id="add-name" class="form-input" placeholder="Название товара" style="margin-bottom:10px;">
+            <select id="add-cat" class="form-input" style="margin-bottom:10px;">
+                <option value="Одноразки">Одноразки</option>
+                <option value="Жидкости">Жидкости</option>
+                <option value="Устройства">Устройства</option>
+                <option value="Расходники">Расходники</option>
+                <option value="Снюс">Снюс</option>
+            </select>
+            <input type="number" id="add-price" class="form-input" placeholder="Цена (₽)" style="margin-bottom:10px;">
+            <input type="number" id="add-stock" class="form-input" placeholder="Остаток (если без вкусов)" style="margin-bottom:10px;">
+            <label style="text-align:left; color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Фото товара (необязательно):</label>
+            <input type="file" id="add-img" accept="image/*" class="form-input" style="margin-bottom:15px; padding: 8px;">
+            <button class="order-btn" onclick="submitNewProduct()">Добавить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-add-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adm-edit-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color:var(--accent); margin-top:0;">✏️ Редактирование</h3>
+            <label style="text-align:left; color:var(--gray); font-size:12px;">Новая цена (₽):</label>
+            <input type="number" id="edit-price" class="form-input" style="margin-bottom:10px;">
+            <label style="text-align:left; color:var(--gray); font-size:12px;">Новое описание:</label>
+            <textarea id="edit-desc" class="form-input" rows="4" style="margin-bottom:15px; resize:none;"></textarea>
+            <button class="order-btn" onclick="saveProductEdit()">Сохранить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-edit-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adm-flavors-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="flavor-prod-name" style="color:var(--accent); margin-top:0;">Вкусы</h3>
+            <div id="flavor-list-admin" style="text-align:left; margin-bottom:15px; max-height:200px; overflow-y:auto;"></div>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <input type="text" id="new-flavor-name" class="form-input" placeholder="Вкус">
+                <input type="number" id="new-flavor-stock" class="form-input" placeholder="Шт." style="width:80px;">
+                <button class="order-btn" style="width:auto; padding:0 15px;" onclick="addFlavorRow()">+</button>
+            </div>
+            <button class="order-btn" onclick="saveFlavors()">Сохранить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

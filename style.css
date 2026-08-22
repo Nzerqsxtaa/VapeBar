@@ -1,0 +1,646 @@
+:root {
+    /* Основные цвета VAPE BAR 2.0 */
+    --bg: #0a0505; /* Очень глубокий черный с красным отливом */
+    --card: #140a0a; /* Темно-красно-черный для карточек */
+    --accent: #e60000; /* Яркий красный (как на лого) */
+    --accent-glow: #ff3333; /* Светящийся красный для анимаций */
+    --text: #ffffff;
+    --gray: #a09090;
+    --danger: #ff0000; 
+}
+
+/* --- АНИМАЦИИ --- */
+@keyframes neonPulse {
+    0% { box-shadow: 0 0 8px rgba(230, 0, 0, 0.2); border-color: rgba(230, 0, 0, 0.3); }
+    100% { box-shadow: 0 0 20px rgba(230, 0, 0, 0.5); border-color: rgba(255, 51, 51, 0.6); }
+}
+
+@keyframes gradientShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+body {
+    background: var(--bg); 
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    margin: 0; 
+    padding: 0 15px 90px 15px;
+}
+
+/* --- ШАПКА --- */
+.header { 
+    text-align: center; 
+    padding: 20px 0 10px 0; 
+}
+
+.header h1 { 
+    font-size: 32px; 
+    margin: 0; 
+    font-weight: 900; 
+    font-style: italic;
+    text-transform: uppercase;
+}
+
+.header span { 
+    color: var(--accent); 
+    text-shadow: 0 0 15px rgba(230, 0, 0, 0.5); 
+}
+
+/* --- ТАБ-БАР ВНИЗУ --- */
+.tab-bar {
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    width: 100%; 
+    display: flex; 
+    justify-content: space-around; 
+    background: rgba(10, 5, 5, 0.85);
+    backdrop-filter: blur(20px); 
+    padding: 15px 0; 
+    border-top: 1px solid #1f0f0f; 
+    z-index: 999;
+}
+
+.tab-btn { 
+    background: none; 
+    border: none; 
+    color: var(--gray); 
+    font-size: 22px; 
+    transition: color 0.3s ease, text-shadow 0.3s ease; 
+    cursor: pointer; 
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tab-btn:hover {
+    color: #e0d0d0;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.tab-btn.active { 
+    color: var(--accent); 
+    text-shadow: 0 0 20px rgba(230, 0, 0, 0.6); 
+}
+
+#badge {
+    position: absolute; 
+    top: -5px; 
+    right: -10px; 
+    background: var(--accent);
+    color: #fff; 
+    font-size: 11px; 
+    font-weight: 800; 
+    padding: 2px 6px; 
+    border-radius: 10px;
+    pointer-events: none; 
+    box-shadow: 0 0 10px rgba(230, 0, 0, 0.5);
+}
+
+/* 1. КОРОТКИЙ И БЫСТРЫЙ ЭФФЕКТ БЛЮРА ПРИ ПЕРЕХОДАХ */
+.tab-content { 
+    display: none; 
+    animation: fadeIn 0.15s ease; /* Значительно ускорили появление */
+}
+
+.tab-content.active { 
+    display: block; 
+}
+
+@keyframes fadeIn { 
+    from { opacity: 0; filter: blur(3px); } 
+    to { opacity: 1; filter: blur(0); } 
+}
+
+.page-title { 
+    font-size: 24px; 
+    margin: 0 0 15px 0; 
+}
+
+.sub-title { 
+    font-size: 18px; 
+    margin: 20px 0 10px 0; 
+    color: var(--gray); 
+}
+
+/* --- КАТЕГОРИИ (ЗАКРЕПЛЕННЫЕ СВЕРХУ) --- */
+.cat-nav { 
+    display: flex; 
+    gap: 10px; 
+    overflow-x: auto; 
+    padding: 15px 0; /* Увеличили отступы для красоты */
+    margin-bottom: 10px; 
+    
+    /* Делаем прилипание к верху */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg); /* Чтобы карточки прятались под категориями при скролле */
+}
+
+.cat-nav::-webkit-scrollbar { 
+    display: none; 
+}
+
+/* 3. ПЛАВНОЕ ПЕРЕКЛЮЧЕНИЕ КАТЕГОРИЙ */
+.c-btn { 
+    background-color: var(--card); /* Используем цвет вместо градиента для идеальной плавности */
+    color: var(--gray); 
+    border: 1px solid rgba(230, 0, 0, 0.2); 
+    padding: 10px 20px; 
+    border-radius: 20px; 
+    white-space: nowrap; 
+    font-size: 14px; 
+    font-weight: 700; 
+    cursor: pointer; 
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; 
+}
+
+.c-btn:hover {
+    color: #fff;
+    border-color: rgba(230, 0, 0, 0.5);
+    box-shadow: 0 0 15px rgba(230, 0, 0, 0.15);
+}
+
+.c-btn.active { 
+    background-color: var(--accent);
+    color: #fff; 
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(230, 0, 0, 0.6);
+}
+
+/* --- ВИТРИНА ТОВАРОВ (2 КОЛОНКИ) --- */
+#product-grid, .grid { 
+    display: grid; 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 12px; 
+}
+
+/* 2. ЭФФЕКТ ФАКЕЛА НА КАРТОЧКАХ */
+.product-card {
+    background: var(--card); 
+    border-radius: 16px; 
+    display: flex; 
+    flex-direction: column; 
+    position: relative; 
+    padding-bottom: 12px;
+    border: 1px solid #1f0f0f; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Скрытый "свет факела" поверх карточки */
+.product-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    /* Радиальный градиент, имитирующий мягкую подсветку из центра */
+    background: radial-gradient(circle at 50% 50%, rgba(255, 51, 51, 0.15) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none; /* Чтобы свет не перекрывал нажатия на кнопки */
+    z-index: 1;
+}
+
+.product-card:hover {
+    border-color: rgba(230, 0, 0, 0.4);
+    box-shadow: 0 8px 25px rgba(230, 0, 0, 0.15);
+}
+
+/* Факел плавно загорается при наведении */
+.product-card:hover::after {
+    opacity: 1;
+}
+
+.product-image { 
+    width: 100%; 
+    height: 140px; 
+    object-fit: cover; 
+    background: #140a0a; 
+    display: block; 
+    transition: opacity 0.3s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.product-card:hover .product-image {
+    opacity: 0.85;
+}
+
+.product-placeholder { 
+    width: 100%; 
+    height: 140px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    background: linear-gradient(135deg, #140a0a, #0a0505); 
+    font-size: 40px; 
+    position: relative;
+    z-index: 2;
+}
+
+.p-info { 
+    padding: 10px 12px 0; 
+    text-align: left; 
+    position: relative;
+    z-index: 2;
+}
+
+.p-info b { 
+    display: block; 
+    font-size: 14px; 
+    margin-bottom: 5px; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+}
+
+.p-info span { 
+    color: var(--accent); 
+    font-weight: 800; 
+    font-size: 15px; 
+}
+
+.add-btn {
+    position: absolute; 
+    bottom: 8px; 
+    right: 8px; 
+    background-color: var(--accent); 
+    color: #fff; 
+    border: none; 
+    width: 32px; 
+    height: 32px; 
+    border-radius: 10px;
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(230, 0, 0, 0.2); 
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    z-index: 3;
+}
+
+.add-btn:hover {
+    background-color: var(--accent-glow);
+    box-shadow: 0 0 15px rgba(255, 51, 51, 0.6);
+}
+
+.add-btn:active { 
+    filter: brightness(0.8);
+}
+
+/* --- КОРЗИНА --- */
+.cart-footer { 
+    margin-top: 25px; 
+    background: var(--card); 
+    padding: 20px; 
+    border-radius: 16px; 
+    border: 1px solid #1f0f0f; 
+}
+
+.total-row { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 15px; 
+}
+
+.total-row span { 
+    color: var(--gray); 
+    font-size: 16px; 
+}
+
+.total-row h3 { 
+    margin: 0; 
+    font-size: 24px; 
+    color: var(--accent); 
+    text-shadow: 0 0 15px rgba(230, 0, 0, 0.4);
+}
+
+.order-btn { 
+    width: 100%; 
+    background-color: var(--accent); 
+    border: none; 
+    padding: 16px; 
+    border-radius: 12px; 
+    font-weight: 800; 
+    font-size: 16px; 
+    color: #fff; 
+    cursor: pointer; 
+    box-shadow: 0 4px 15px rgba(230, 0, 0, 0.25); 
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.order-btn:hover {
+    background-color: var(--accent-glow);
+    box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+}
+
+/* Карточки в корзине */
+#cart-list .product-card { 
+    flex-direction: row; 
+    padding: 10px; 
+    align-items: center; 
+}
+
+#cart-list .product-image, #cart-list .product-placeholder { 
+    width: 60px; 
+    height: 60px; 
+    border-radius: 10px; 
+}
+
+#cart-list .p-info { 
+    padding: 0 0 0 12px; 
+    flex-grow: 1; 
+}
+
+#cart-list .add-btn { 
+    position: static; 
+    margin-left: 10px; 
+    background-color: var(--danger); 
+    box-shadow: 0 4px 10px rgba(255, 0, 0, 0.2); 
+}
+
+#cart-list .add-btn:hover {
+    background-color: #ff3333;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+}
+
+/* Профиль - новая карточка */
+.profile-main-card {
+    background: #140a0a;
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid #1f0f0f;
+    margin-bottom: 20px;
+}
+
+.profile-header-new { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+
+.avatar-container {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: #140a0a; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; border: 2px solid var(--accent);
+}
+
+#u-avatar { width: 100%; height: 100%; object-fit: cover; }
+#u-avatar-fallback { font-size: 24px; color: var(--accent); }
+
+.profile-info-new h3 { margin: 0 0 5px 0; font-size: 18px; color: white; }
+.profile-info-new p { margin: 0; color: var(--gray); font-size: 13px; }
+
+.vip-badge {
+    background: rgba(230, 0, 0, 0.2);
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    color: var(--accent); font-size: 12px; font-weight: bold; margin-top: 5px;
+}
+
+.profile-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.stat-box {
+    background: #140a0a; padding: 15px; border-radius: 15px;
+    display: flex; flex-direction: column;
+}
+
+.stat-box span { color: var(--gray); font-size: 11px; margin-bottom: 5px; text-transform: uppercase;}
+.stat-box b { color: white; font-size: 18px; margin-bottom: 5px;}
+.stat-box small { color: var(--gray); font-size: 11px; }
+.stat-box.accent-box b { color: var(--accent); font-size: 20px; text-shadow: 0 0 10px rgba(230, 0, 0, 0.3);}
+.stat-box.accent-box small { color: #ff3333; font-weight: bold;}
+
+
+.info-card {
+    background: var(--card);
+    padding: 15px;
+    border-radius: 16px;
+    border: 1px solid #1f0f0f;
+    color: var(--gray);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 15px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.info-card:hover {
+    border-color: rgba(230, 0, 0, 0.3);
+    box-shadow: 0 0 15px rgba(230, 0, 0, 0.1);
+}
+
+/* --- МОДАЛЬНОЕ ОКНО --- */
+.modal-overlay {
+    position: fixed !important; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(10,5,5,0.85); 
+    backdrop-filter: blur(5px);
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 99999;
+}
+
+.hidden { 
+    display: none !important; 
+}
+
+.modal-content {
+    background: var(--card); 
+    width: 85%; 
+    max-height: 80vh;
+    border-radius: 20px; 
+    padding: 20px; 
+    border: 1px solid rgba(230, 0, 0, 0.5);
+    box-shadow: 0 0 30px rgba(230, 0, 0, 0.15);
+    display: flex; 
+    flex-direction: column; 
+    text-align: center;
+    overflow-y: auto; 
+}
+
+.modal-content h3 { 
+    margin: 0 0 15px 0; 
+    font-size: 20px; 
+    color: var(--text); 
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.flavor-grid { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    overflow-y: auto; 
+    margin-bottom: 15px; 
+}
+
+/* --- КНОПКИ ВКУСОВ --- */
+.flavor-btn {
+    background-color: rgba(20, 10, 10, 0.8) !important; 
+    border: 1px solid #2a1515 !important; 
+    color: #ffffff !important;
+    padding: 14px; 
+    border-radius: 12px; 
+    font-size: 16px; 
+    text-align: left; 
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; 
+    cursor: pointer;
+}
+
+.flavor-btn:hover {
+    background-color: rgba(230, 0, 0, 0.1) !important;
+    border-color: var(--accent) !important;
+    box-shadow: inset 0 0 15px rgba(230, 0, 0, 0.15);
+}
+
+/* --- КНОПКА ОТМЕНЫ --- */
+.close-btn {
+    background-color: var(--card) !important; 
+    color: var(--danger) !important; 
+    border: 1px solid rgba(255, 0, 0, 0.3) !important;
+    padding: 14px; 
+    border-radius: 12px; 
+    font-weight: 800; 
+    font-size: 16px;
+    width: 100%; 
+    cursor: pointer; 
+    margin-top: 10px;
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.close-btn:hover {
+    background-color: rgba(255, 0, 0, 0.1) !important;
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);
+}
+
+/* --- КАРТОЧКА ДЕТАЛЕЙ ТОВАРА --- */
+.product-details-modal {
+    text-align: left;
+    position: relative;
+    padding: 24px;
+}
+
+.top-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 10;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.top-close:hover {
+    background-color: rgba(255, 0, 0, 0.1);
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+}
+
+#pm-image-container img {
+    width: 100%;
+    height: 200px; 
+    object-fit: cover;
+    border-radius: 16px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+
+.pm-cat-label {
+    color: var(--accent-glow);
+    font-size: 14px;
+    margin-top: -10px;
+    margin-bottom: 12px;
+    font-weight: bold;
+}
+
+.pm-description {
+    color: #a0a0b0;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 25px;
+}
+
+.pm-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Центрируем по вертикали */
+    border-top: 1px solid #1f0f0f;
+    padding-top: 15px;
+    margin-top: 15px;
+    gap: 15px; /* Задаем жесткое расстояние между ценой и кнопкой */
+}
+
+.pm-footer h2 {
+    color: white;
+    margin: 0;
+    white-space: nowrap; /* Запрещаем цене переноситься на новую строку */
+    font-size: 24px;
+}
+
+.pm-footer .pm-add {
+    width: auto;
+    flex-grow: 1; /* Кнопка занимает оставшееся место */
+    padding: 12px 24px;
+    margin: 0;
+    font-size: 15px;
+    text-align: center;
+}
+
+/* --- ФОРМЫ --- */
+.form-input {
+    width: 100%;
+    padding: 12px 14px;
+    background-color: #140a0a;
+    border: 1px solid #2a1515;
+    border-radius: 12px;
+    color: white;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    font-family: inherit;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(230, 0, 0, 0.2);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+    background-color: #140a0a;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #2a1515;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.checkbox-group:hover {
+    border-color: rgba(230, 0, 0, 0.3);
+    background-color: rgba(230, 0, 0, 0.05);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
