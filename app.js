@@ -5,6 +5,7 @@ tg.expand();
 let products = [];
 let cart = [];
 let currentSelectedProductId = null;
+let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
 
 window.onload = () => {
@@ -54,8 +55,14 @@ window.onload = () => {
     loadCart(); 
     updateCartUI();
     loadProfileData();
+    if(userCity) loadCatalog();
+};
 
-    fetch('/api/catalog')
+// ЗДЕСЬ МЫ ЗАПРАШИВАЕМ КАТАЛОГ С ФИЛЬТРОМ ГОРОДА
+function loadCatalog() {
+    fetch(`/api/catalog?city=${encodeURIComponent(userCity)}`, {
+        headers: { "ngrok-skip-browser-warning": "true" }
+    })
         .then(response => response.json())
         .then(data => {
             products = data; 
@@ -66,7 +73,7 @@ window.onload = () => {
             const grid = document.getElementById('product-grid');
             if(grid) grid.innerHTML = '<p style="color: white; text-align: center; padding: 20px; grid-column: span 2;">Сервер временно недоступен. Пожалуйста, перезапустите бота.</p>';
         });
-};
+}
 
 function checkCity() {
     if (!userCity) document.getElementById('city-modal').classList.remove('hidden');
@@ -78,6 +85,7 @@ function selectCity(city) {
     localStorage.setItem('vapebar_city', city);
     document.getElementById('city-modal').classList.add('hidden');
     updateCityDisplay();
+    loadCatalog();
 }
 
 function openCityModal() { document.getElementById('city-modal').classList.remove('hidden'); }
@@ -115,57 +123,98 @@ function filterCat(cat, btn) {
     renderProducts(cat);
 }
 
+// НОВЫЙ ДИЗАЙН КАРТОЧКИ В КАТАЛОГЕ (Квадратная фотка + сумочка)
 function renderProducts(f = 'Все') {
     const grid = document.getElementById('product-grid');
     if(!grid) return;
     grid.innerHTML = '';
     const items = f === 'Все' ? products : products.filter(p => p.category === f || p.cat === f);
     
+    if (items.length === 0) {
+        grid.innerHTML = `<p style="color: var(--gray); text-align: center; padding: 20px; grid-column: span 2;">В городе ${userCity} пока нет товаров этой категории.</p>`;
+        return;
+    }
+
     items.forEach(p => {
         const imageHTML = p.img || p.image_url
             ? `<img src="${p.img || p.image_url}" alt="${p.name}" class="product-image">` 
             : `<div class="product-placeholder">💨</div>`;
 
         grid.innerHTML += `
-            <div class="product-card">
-                <div onclick="openProductModal(${p.id})" style="cursor: pointer;">
-                    ${imageHTML}
-                    <div class="p-info"><b>${p.name}</b><br><span>${p.price} ₽</span></div>
+            <div class="product-card" onclick="openProductModal(${p.id})" style="cursor: pointer;">
+                ${imageHTML}
+                <div class="p-info">
+                    <b>${p.name}</b><br>
+                    <span>${p.price} ₽</span>
                 </div>
-                <button class="add-btn" onclick="addToCartClick(${p.id})">+</button>
+                <button class="add-btn-icon"><i class="fa-solid fa-bag-shopping"></i></button>
             </div>`;
     });
 }
 
-function addToCartClick(id) {
+function openProductModal(id) {
     const p = products.find(i => i.id === id);
+    if (!p) return;
+    
+    currentSelectedProductId = id;
+    currentSelectedFlavor = null;
+    
+    const imgContainer = document.getElementById('pm-image-container');
+    const imgUrl = p.img || p.image_url;
+    if (imgUrl) imgContainer.innerHTML = `<img src="${imgUrl}" alt="${p.name}">`;
+    else imgContainer.innerHTML = `<div class="product-placeholder-large">💨</div>`;
+    
+    document.getElementById('pm-title').innerText = `${p.price} ₽`;
+    document.getElementById('pm-desc').innerText = p.name;
+    
+    const flavorsContainer = document.getElementById('pm-flavors-container');
+    const flavorList = document.getElementById('pm-flavor-list');
+    
     if (p.flavors && p.flavors.length > 0) {
-        currentSelectedProductId = id;
-        showFlavorModal(p);
-    } else { addExactProductToCart(p, null); }
+        flavorsContainer.classList.remove('hidden');
+        flavorList.innerHTML = '';
+        document.getElementById('pm-selected-flavor').innerText = 'Не выбран';
+        
+        p.flavors.forEach((flavor, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'flavor-pill';
+            btn.innerText = flavor;
+            btn.onclick = () => selectProductFlavor(flavor, btn);
+            flavorList.appendChild(btn);
+            
+            if(index === 0) selectProductFlavor(flavor, btn); // Автовыбор первого вкуса
+        });
+    } else {
+        flavorsContainer.classList.add('hidden');
+    }
+    
+    const addBtn = document.getElementById('pm-add-btn');
+    addBtn.onclick = () => {
+        if (p.flavors && p.flavors.length > 0 && !currentSelectedFlavor) {
+            tg.showAlert("Пожалуйста, выберите вкус!");
+            return;
+        }
+        addExactProductToCart(p, currentSelectedFlavor);
+        closeProductModal();
+    };
+    
+    document.getElementById('product-modal').classList.remove('hidden');
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
-function showFlavorModal(product) {
-    document.getElementById('modal-title').innerText = product.name;
-    const list = document.getElementById('flavor-list');
-    list.innerHTML = '';
-    product.flavors.forEach(flavor => {
-        list.innerHTML += `<button class="flavor-btn" onclick="selectFlavor('${flavor}')">${flavor}</button>`;
-    });
-    document.getElementById('flavor-modal').classList.remove('hidden');
-    tg.HapticFeedback.impactOccurred('light');
+function selectProductFlavor(flavor, btnElement) {
+    currentSelectedFlavor = flavor;
+    document.getElementById('pm-selected-flavor').innerText = flavor;
+    
+    document.querySelectorAll('.flavor-pill').forEach(b => b.classList.remove('active'));
+    if(btnElement) btnElement.classList.add('active');
+    
+    if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }
 
-function selectFlavor(flavor) {
-    const p = products.find(i => i.id === currentSelectedProductId);
-    addExactProductToCart(p, flavor);
-    closeModal();
-}
+function closeProductModal() { document.getElementById('product-modal').classList.add('hidden'); }
 
-function closeModal() { 
-    document.getElementById('flavor-modal').classList.add('hidden'); 
-    document.getElementById('city-modal').classList.add('hidden');
-}
+function closeModal() { document.getElementById('city-modal').classList.add('hidden'); }
 
 function addExactProductToCart(product, flavor) {
     const currentCount = cart.filter(item => item.id === product.id).length;
@@ -222,11 +271,15 @@ function updateCartUI() {
 
 function openCheckout() {
     if(cart.length === 0) return tg.showAlert("Сначала добавьте товары в корзину!");
-    if(!userCity) { tg.showAlert("Пожалуйста, выберите город в профиле!"); return openCityModal(); }
+    if(!userCity) {
+        tg.showAlert("Пожалуйста, выберите город в профиле!");
+        return openCityModal();
+    }
     
     const urlParams = new URLSearchParams(window.location.search);
     const bonuses = parseInt(urlParams.get('bonuses') || '0');
     document.getElementById('co-bonus-count').innerText = bonuses + " ₽";
+    
     if(bonuses <= 0) document.getElementById('bonus-group').style.display = 'none';
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -244,10 +297,8 @@ function submitCheckout() {
     const phone = document.getElementById('co-phone').value.trim();
     const payment = document.getElementById('co-payment').value;
     const age = document.getElementById('co-age').checked;
-    
     const bonusesCheckbox = document.getElementById('co-bonuses');
     const useBonuses = bonusesCheckbox ? bonusesCheckbox.checked : false;
-    
     const total = cart.reduce((s,i)=>s+i.price, 0);
 
     if(!age) return tg.showAlert("Для оформления заказа необходимо подтвердить возраст (18+)");
@@ -284,39 +335,6 @@ function submitCheckout() {
     });
 }
 
-function openProductModal(id) {
-    const p = products.find(i => i.id === id);
-    if (!p) return;
-    
-    const imgContainer = document.getElementById('pm-image-container');
-    const imgUrl = p.img || p.image_url;
-    if (imgUrl) imgContainer.innerHTML = `<img src="${imgUrl}" alt="${p.name}">`;
-    else imgContainer.innerHTML = `<div class="product-placeholder-large">💨</div>`;
-    
-    document.getElementById('pm-title').innerText = p.name;
-    document.getElementById('pm-category').innerText = p.cat || p.category;
-    document.getElementById('pm-price').innerText = p.price + ' ₽';
-    
-    let descText = "";
-    if (p.desc && p.desc.trim() !== "") descText = p.desc + "\n\n";
-    else if (p.description && p.description.trim() !== "") descText = p.description + "\n\n";
-    else descText = `Оригинальный товар из категории «${p.cat || p.category}».\n\n`;
-    
-    if (p.stock > 0) descText += `✅ В наличии на складе: ${p.stock} шт.`;
-    else descText += `⚠️ Заканчивается`;
-    
-    document.getElementById('pm-desc').innerText = descText;
-    
-    const addBtn = document.getElementById('pm-add-btn');
-    addBtn.onclick = () => { closeProductModal(); addToCartClick(p.id); };
-    
-    document.getElementById('product-modal').classList.remove('hidden');
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-}
-
-function closeProductModal() { document.getElementById('product-modal').classList.add('hidden'); }
-
-/* --- ПРОФИЛЬ --- */
 function getMyId() {
     const urlParams = new URLSearchParams(window.location.search);
     return parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id) || 0;
@@ -326,7 +344,7 @@ function loadProfileData() {
     const userId = getMyId();
     if(!userId) return;
     
-    fetch(`/api/profile?user_id=${userId}`)
+    fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
             const uVip = document.getElementById('u-vip');
@@ -369,29 +387,22 @@ function setAdminTabActive(btnId) {
 
 function closeAdmModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function openAddModal() {
-    try {
-        document.getElementById('adm-add-modal').classList.remove('hidden');
-    } catch(e) {
-        tg.showAlert("Ошибка интерфейса: " + e.message);
-    }
-}
+function openAddModal() { document.getElementById('adm-add-modal').classList.remove('hidden'); }
 
 let adminProducts = [];
 function loadAdminProducts() {
     setAdminTabActive('btn-adm-prod');
-    fetch(`/api/admin/products?admin_id=${getMyId()}`)
+    fetch(`/api/admin/products?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
             adminProducts = data;
-            // ⚡ ИСПОЛЬЗУЕМ ФУНКЦИЮ openAddModal
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openAddModal()">➕ Добавить товар</button>`;
             data.forEach(p => {
                 html += `
                 <div class="info-card" style="margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <div style="text-align:left;">
-                            <b style="color:var(--text);">${p.name}</b><br>
+                            <b style="color:var(--text);">[${p.city}] ${p.name}</b><br>
                             <span style="color:var(--gray); font-size:12px;">${p.category} | ${p.price}₽</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px;">
@@ -402,14 +413,13 @@ function loadAdminProducts() {
                     </div>
                     <div style="display:flex; gap:5px;">
                         <button onclick="openFlavorsModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:6px; border-radius:8px; font-size:12px;">Вкусы</button>
-                        <button onclick="openEditModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:var(--gray); padding:6px; border-radius:8px; font-size:12px;">✏️ Изм.</button>
                         <button onclick="deleteProduct(${p.id})" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; border-radius:8px; font-size:12px;">🗑 Удал.</button>
                     </div>
                 </div>`;
             });
             document.getElementById('admin-workspace').innerHTML = html || '<p>Склад пуст</p>';
         })
-        .catch(err => tg.showAlert("Ошибка загрузки склада: " + err.message));
+        .catch(err => tg.showAlert("Ошибка: " + err.message));
 }
 
 function changeStock(prodId, newStock) {
@@ -429,6 +439,7 @@ async function submitNewProduct() {
     const category = document.getElementById('add-cat').value;
     const price = parseFloat(document.getElementById('add-price').value);
     const stock = parseInt(document.getElementById('add-stock').value) || 0;
+    const city = document.getElementById('add-city').value;
     const imgInput = document.getElementById('add-img');
     
     if(!name || isNaN(price)) return tg.showAlert("Заполните название и цену!");
@@ -449,7 +460,7 @@ async function submitNewProduct() {
         }
     }
 
-    const data = { name, category, price, stock, image_url };
+    const data = { name, category, price, stock, image_url, city };
     fetch(`/api/admin/products?admin_id=${getMyId()}`, {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
     })
@@ -462,32 +473,13 @@ async function submitNewProduct() {
         loadAdminProducts();
         document.getElementById('add-name').value = ''; document.getElementById('add-price').value = '';
         document.getElementById('add-stock').value = ''; document.getElementById('add-img').value = '';
-        tg.showAlert("✅ Товар успешно добавлен!");
+        tg.showAlert(`✅ Товар добавлен на склад: ${city}!`);
     })
-    .catch(err => {
-        tg.showAlert("❌ Ошибка сервера: " + err.message);
-    });
-}
-
-let currentEditProdId = null;
-function openEditModal(id) {
-    const p = adminProducts.find(x => x.id === id);
-    currentEditProdId = id;
-    document.getElementById('edit-price').value = p.price;
-    document.getElementById('edit-desc').value = p.description || '';
-    document.getElementById('adm-edit-modal').classList.remove('hidden');
-}
-
-function saveProductEdit() {
-    const price = parseFloat(document.getElementById('edit-price').value);
-    const desc = document.getElementById('edit-desc').value.trim();
-    if(isNaN(price)) return tg.showAlert("Укажите цену!");
-    fetch(`/api/admin/products/${currentEditProdId}/edit?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({price: price, description: desc})
-    }).then(() => { closeAdmModal('adm-edit-modal'); loadAdminProducts(); });
+    .catch(err => tg.showAlert("❌ Ошибка: " + err.message));
 }
 
 let currentFlavors = {};
+let currentEditProdId = null;
 function openFlavorsModal(id) {
     const p = adminProducts.find(x => x.id === id);
     currentEditProdId = id; currentFlavors = Object.assign({}, p.flavors || {});
@@ -527,7 +519,7 @@ function saveFlavors() {
 
 function loadAdminStats() {
     setAdminTabActive('btn-adm-stat');
-    fetch(`/api/admin/stats?admin_id=${getMyId()}`)
+    fetch(`/api/admin/stats?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(async res => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
@@ -566,12 +558,12 @@ function loadAdminStats() {
             `;
             document.getElementById('admin-workspace').innerHTML = html;
         })
-        .catch(err => tg.showAlert("❌ Ошибка загрузки статистики: " + err.message));
+        .catch(err => tg.showAlert("❌ Ошибка статистики: " + err.message));
 }
 
 function loadAdminOrders() {
     setAdminTabActive('btn-adm-ord');
-    fetch(`/api/admin/orders?admin_id=${getMyId()}`)
+    fetch(`/api/admin/orders?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(async res => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
@@ -595,7 +587,7 @@ function loadAdminOrders() {
                         <span style="color:${statusColor}; font-size:12px; font-weight:bold;">${statusText}</span>
                     </div>
                     <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${o.user_name} (ID: ${o.user_id})</p>
-                    <p style="margin:4px 0; font-size:13px;"><b>Тип:</b> ${o.type} | <b>Тел:</b> ${o.phone}</p>
+                    <p style="margin:4px 0; font-size:13px;"><b>Город:</b> ${o.city} | <b>Тел:</b> ${o.phone}</p>
                     <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--accent); font-weight:bold;">${o.total}₽</span></p>
                     <hr style="border-color:var(--gray); margin:10px 0;">
                     <p style="margin:0; font-size:12px; color:var(--gray); line-height:1.6;">${o.items.join('<br>')}</p>
@@ -616,7 +608,7 @@ function changeOrderStatus(oid, status) {
 
 function loadAdminUsers() {
     setAdminTabActive('btn-adm-usr');
-    fetch(`/api/admin/users?admin_id=${getMyId()}`)
+    fetch(`/api/admin/users?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
             let html = '';
