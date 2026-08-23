@@ -171,28 +171,24 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА ВКУСОВ -->
-    <div id="flavor-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 id="modal-title">Выберите вкус</h3>
-            <div id="flavor-list" class="flavor-grid"></div>
-            <button class="close-btn" onclick="closeModal()">Отмена</button>
-        </div>
-    </div>
-    
-    <!-- МОДАЛКА ТОВАРА -->
+    <!-- МОДАЛКА ТОВАРА (НОВЫЙ ДИЗАЙН КАК НА ФОТО) -->
     <div id="product-modal" class="modal-overlay hidden">
         <div class="modal-content product-details-modal">
             <button class="close-btn top-close" onclick="closeProductModal()">
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <div id="pm-image-container"></div>
-            <h3 id="pm-title">Название товара</h3>
-            <p id="pm-category" class="pm-cat-label">Категория</p>
-            <p id="pm-desc" class="pm-description"></p>
+            
+            <h3 id="pm-title">0 ₽</h3>
+            <p id="pm-desc" class="pm-description">Название товара</p>
+            
+            <div id="pm-flavors-container" class="hidden">
+                <p style="color: var(--gray); font-size: 13px; margin-bottom: 8px; margin-left: 20px;">Вкусы: <span id="pm-selected-flavor" style="color: white; font-weight: bold;"></span></p>
+                <div id="pm-flavor-list" class="flavor-pills-grid"></div>
+            </div>
+
             <div class="pm-footer">
-                <h2 id="pm-price">0 ₽</h2>
-                <button id="pm-add-btn" class="order-btn pm-add">В корзину</button>
+                <button id="pm-add-btn" class="order-btn pm-add">Добавить в корзину</button>
             </div>
         </div>
     </div>
@@ -208,6 +204,11 @@
                 <option value="Устройства">Устройства</option>
                 <option value="Расходники">Расходники</option>
                 <option value="Снюс">Снюс</option>
+            </select>
+            <!-- ВЫБОР ГОРОДА ДЛЯ АДМИНА -->
+            <select id="add-city" class="form-input" style="margin-bottom:10px;">
+                <option value="Междуреченск">Склад: Междуреченск</option>
+                <option value="Мыски">Склад: Мыски</option>
             </select>
             <input type="number" id="add-price" class="form-input" placeholder="Цена (₽)" style="margin-bottom:10px;">
             <input type="number" id="add-stock" class="form-input" placeholder="Остаток (если без вкусов)" style="margin-bottom:10px;">
@@ -227,20 +228,6 @@
             <textarea id="edit-desc" class="form-input" rows="4" style="margin-bottom:15px; resize:none;"></textarea>
             <button class="order-btn" onclick="saveProductEdit()">Сохранить</button>
             <button class="close-btn" onclick="closeAdmModal('adm-edit-modal')">Отмена</button>
-        </div>
-    </div>
-
-    <div id="adm-flavors-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 id="flavor-prod-name" style="color:var(--accent); margin-top:0;">Вкусы</h3>
-            <div id="flavor-list-admin" style="text-align:left; margin-bottom:15px; max-height:200px; overflow-y:auto;"></div>
-            <div style="display:flex; gap:10px; margin-bottom:15px;">
-                <input type="text" id="new-flavor-name" class="form-input" placeholder="Вкус">
-                <input type="number" id="new-flavor-stock" class="form-input" placeholder="Шт." style="width:80px;">
-                <button class="order-btn" style="width:auto; padding:0 15px;" onclick="addFlavorRow()">+</button>
-            </div>
-            <button class="order-btn" onclick="saveFlavors()">Сохранить</button>
-            <button class="close-btn" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
         </div>
     </div>
 
