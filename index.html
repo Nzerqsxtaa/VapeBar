@@ -38,6 +38,7 @@
             <button class="c-btn" onclick="filterCat('Жидкости', this)">Жидкости</button>
             <button class="c-btn" onclick="filterCat('Устройства', this)">Устройства</button>
             <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
+            <button class="c-btn" onclick="filterCat('Снюс', this)">Снюс</button>
         </div>
         <div id="product-grid" class="grid"></div>
     </section>
@@ -89,7 +90,7 @@
                 <label for="co-bonuses">Списать бонусы (<span id="co-bonus-count" style="color:#e60000; font-weight:bold;">0</span>)</label>
             </div>
             <button class="order-btn" onclick="submitCheckout()" style="margin-top: 20px;">Подтвердить заказ</button>
-            <button class="c-btn" onclick="backToCart()" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #1f1f2e; color: #a09090;">Назад в корзину</button>
+            <button class="c-btn" onclick="backToCart()" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #1f0f0f; color: #a09090;">Назад в корзину</button>
         </div>
     </section>
 
@@ -134,7 +135,7 @@
             </div>
             <label style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Ваша ссылка для приглашения:</label>
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="u-ref-link" class="form-input" readonly style="color: #ff3333; font-size: 13px; flex: 1;">
+                <input type="text" id="u-ref-link" class="form-input" readonly style="color: #e60000; font-size: 13px; flex: 1;">
                 <button onclick="copyRefLink()" style="background: var(--accent); border: none; border-radius: 12px; width: 45px; color: white; cursor: pointer; transition: 0.2s;"><i class="fa-regular fa-copy"></i></button>
             </div>
         </div>
@@ -195,6 +196,54 @@
             </div>
         </div>
     </div>
+
+    <!-- ОКНА АДМИНКИ -->
+    <div id="adm-add-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
+            <input type="text" id="add-name" class="form-input" placeholder="Название товара" style="margin-bottom:10px;">
+            <select id="add-cat" class="form-input" style="margin-bottom:10px;">
+                <option value="Одноразки">Одноразки</option>
+                <option value="Жидкости">Жидкости</option>
+                <option value="Устройства">Устройства</option>
+                <option value="Расходники">Расходники</option>
+                <option value="Снюс">Снюс</option>
+            </select>
+            <input type="number" id="add-price" class="form-input" placeholder="Цена (₽)" style="margin-bottom:10px;">
+            <input type="number" id="add-stock" class="form-input" placeholder="Остаток (если без вкусов)" style="margin-bottom:10px;">
+            <label style="text-align:left; color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Фото товара (необязательно):</label>
+            <input type="file" id="add-img" accept="image/*" class="form-input" style="margin-bottom:15px; padding: 8px;">
+            <button class="order-btn" onclick="submitNewProduct()">Добавить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-add-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adm-edit-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color:var(--accent); margin-top:0;">✏️ Редактирование</h3>
+            <label style="text-align:left; color:var(--gray); font-size:12px;">Новая цена (₽):</label>
+            <input type="number" id="edit-price" class="form-input" style="margin-bottom:10px;">
+            <label style="text-align:left; color:var(--gray); font-size:12px;">Новое описание:</label>
+            <textarea id="edit-desc" class="form-input" rows="4" style="margin-bottom:15px; resize:none;"></textarea>
+            <button class="order-btn" onclick="saveProductEdit()">Сохранить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-edit-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adm-flavors-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="flavor-prod-name" style="color:var(--accent); margin-top:0;">Вкусы</h3>
+            <div id="flavor-list-admin" style="text-align:left; margin-bottom:15px; max-height:200px; overflow-y:auto;"></div>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <input type="text" id="new-flavor-name" class="form-input" placeholder="Вкус">
+                <input type="number" id="new-flavor-stock" class="form-input" placeholder="Шт." style="width:80px;">
+                <button class="order-btn" style="width:auto; padding:0 15px;" onclick="addFlavorRow()">+</button>
+            </div>
+            <button class="order-btn" onclick="saveFlavors()">Сохранить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
