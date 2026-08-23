@@ -1,7 +1,7 @@
 let tg = window.Telegram.WebApp;
 
 // ⚠️ УКАЖИ ЗДЕСЬ АДРЕС СВОЕГО PTERODACTYL СЕРВЕРА (Обязательно с https://)
-const API_URL = "http://coding.netrix.pw:19032";
+const API_URL = ""https://cleat-unhealthy-pastime.ngrok-free.dev";
 
 tg.ready();
 tg.expand();
