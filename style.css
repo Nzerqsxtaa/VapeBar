@@ -329,7 +329,7 @@ body {
 /* --- НОВЫЙ ДИЗАЙН КАРТОЧКИ ТОВАРА В МОДАЛКЕ --- */
 .product-details-modal {
     text-align: left; position: relative; padding: 0; overflow: hidden; border-radius: 16px;
-    background: #1e1e24; /* Серый фон как на рефе */
+    background: #1e1e24; /* Темный фон под реф */
 }
 
 .top-close {
@@ -342,26 +342,22 @@ body {
     width: 100%; height: 250px; object-fit: cover; margin-bottom: 15px; display: block;
 }
 
-#pm-title {
-    color: white; font-size: 24px; font-weight: bold; margin: 0 20px 5px 20px;
-}
-
-.pm-description {
-    color: var(--gray); font-size: 14px; line-height: 1.5; margin: 0 20px 20px 20px;
-}
-
 /* СЕТКА ВКУСОВ */
 .flavor-pills-grid {
-    display: flex; flex-wrap: wrap; gap: 8px; margin: 0 20px 20px 20px;
+    display: flex; flex-wrap: wrap; gap: 8px; margin: 0 20px;
 }
 
 .flavor-pill {
-    background: transparent; border: 1px solid #333; color: white; padding: 8px 12px; border-radius: 8px;
-    font-size: 13px; cursor: pointer; transition: 0.2s;
+    background: #140a0a; border: 1px solid #2a1515; color: var(--gray); padding: 10px 14px; border-radius: 8px;
+    font-size: 13px; cursor: pointer; transition: 0.2s; flex-grow: 1; text-align: center;
 }
 
 .flavor-pill.active {
-    border-color: var(--accent); background: rgba(230, 0, 0, 0.1);
+    border-color: var(--accent); background: rgba(230, 0, 0, 0.1); color: white;
+}
+
+.pm-description {
+    color: var(--gray); font-size: 14px; line-height: 1.5; margin: 0;
 }
 
 .pm-footer {
@@ -369,8 +365,10 @@ body {
 }
 
 .pm-footer .pm-add {
-    width: 100%; background: #4a90e2; /* Синяя кнопка как на рефе */
-    color: white; border: none; padding: 14px; border-radius: 10px; font-weight: bold; font-size: 16px; box-shadow: none;
+    width: 100%; background: var(--accent); color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 16px; box-shadow: 0 4px 15px rgba(230, 0, 0, 0.3); transition: 0.2s; cursor: pointer; margin: 0;
+}
+.pm-footer .pm-add:active {
+    transform: scale(0.95);
 }
 
 /* --- ФОРМЫ --- */
