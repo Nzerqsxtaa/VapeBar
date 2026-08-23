@@ -1,8 +1,4 @@
 let tg = window.Telegram.WebApp;
-
-// ⚠️ УКАЖИ ЗДЕСЬ АДРЕС СВОЕГО PTERODACTYL СЕРВЕРА (Обязательно с https://)
-const API_URL = "https://cleat-unhealthy-pastime.ngrok-free.dev";
-
 tg.ready();
 tg.expand();
 
@@ -62,9 +58,8 @@ window.onload = () => {
     updateCartUI();
     loadProfileData();
 
-    // 3. Загрузка каталога с БЭКЕНДА
-    const fetchUrl = API_URL ? `${API_URL}/api/catalog` : '/api/catalog';
-    fetch(fetchUrl)
+    // 3. Загрузка каталога (ОТНОСИТЕЛЬНЫЙ ПУТЬ ДЛЯ VERCEL REWRITES)
+    fetch('/api/catalog')
         .then(response => response.json())
         .then(data => {
             products = data; 
@@ -305,8 +300,7 @@ function submitCheckout() {
         btn.innerText = '⏳ Отправка...';
     }
 
-    const fetchUrl = API_URL ? `${API_URL}/api/orders` : '/api/orders';
-    fetch(fetchUrl, {
+    fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
@@ -373,8 +367,7 @@ function loadProfileData() {
     const userId = getMyId();
     if(!userId) return;
     
-    const fetchUrl = API_URL ? `${API_URL}/api/profile?user_id=${userId}` : `/api/profile?user_id=${userId}`;
-    fetch(fetchUrl)
+    fetch(`/api/profile?user_id=${userId}`)
         .then(res => res.json())
         .then(data => {
             const uVip = document.getElementById('u-vip');
@@ -416,3 +409,260 @@ function copyRefLink() {
     if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     tg.showAlert("✅ Реферальная ссылка скопирована!");
 }
+
+/* --- АДМИНКА --- */
+function setAdminTabActive(btnId) {
+    ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.classList.remove('active');
+    });
+    document.getElementById(btnId).classList.add('active');
+    document.getElementById('admin-workspace').innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка...</p>';
+}
+
+function closeAdmModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+let adminProducts = [];
+function loadAdminProducts() {
+    setAdminTabActive('btn-adm-prod');
+    fetch(`/api/admin/products?admin_id=${getMyId()}`)
+        .then(res => res.json())
+        .then(data => {
+            adminProducts = data;
+            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="document.getElementById('adm-add-modal').classList.remove('hidden')">➕ Добавить товар</button>`;
+            data.forEach(p => {
+                html += `
+                <div class="info-card" style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="text-align:left;">
+                            <b style="color:var(--text);">${p.name}</b><br>
+                            <span style="color:var(--gray); font-size:12px;">${p.category} | ${p.price}₽</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <button onclick="changeStock(${p.id}, ${p.stock - 1})" style="background:var(--card); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">-</button>
+                            <b style="color:var(--accent); min-width:20px; text-align:center;">${p.stock}</b>
+                            <button onclick="changeStock(${p.id}, ${p.stock + 1})" style="background:var(--card); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">+</button>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button onclick="openFlavorsModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:6px; border-radius:8px; font-size:12px;">Вкусы</button>
+                        <button onclick="openEditModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:var(--gray); padding:6px; border-radius:8px; font-size:12px;">✏️ Изм.</button>
+                        <button onclick="deleteProduct(${p.id})" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; border-radius:8px; font-size:12px;">🗑 Удал.</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-workspace').innerHTML = html || '<p>Склад пуст</p>';
+        });
+}
+
+function changeStock(prodId, newStock) {
+    if (newStock < 0) return;
+    fetch(`/api/admin/products/${prodId}/stock?admin_id=${getMyId()}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stock: newStock})
+    }).then(() => loadAdminProducts());
+}
+
+function deleteProduct(prodId) {
+    if(!confirm("Точно удалить товар?")) return;
+    fetch(`/api/admin/products/${prodId}?admin_id=${getMyId()}`, {method: 'DELETE'}).then(() => loadAdminProducts());
+}
+
+async function submitNewProduct() {
+    const name = document.getElementById('add-name').value.trim();
+    const category = document.getElementById('add-cat').value;
+    const price = parseFloat(document.getElementById('add-price').value);
+    const stock = parseInt(document.getElementById('add-stock').value) || 0;
+    const imgInput = document.getElementById('add-img');
+    
+    if(!name || isNaN(price)) return tg.showAlert("Заполните название и цену!");
+
+    let image_url = null;
+    if (imgInput.files && imgInput.files[0]) {
+        tg.showAlert("⏳ Загружаем фото... Пожалуйста, подождите.");
+        const formData = new FormData();
+        formData.append('image', imgInput.files[0]);
+        formData.append('key', '967a6dda6211a62b5f6915a39548b309'); 
+        try {
+            const imgRes = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+            const imgData = await imgRes.json();
+            if (imgData.success) image_url = imgData.data.url;
+            else return tg.showAlert("❌ Ошибка сервера при загрузке фото.");
+        } catch (e) {
+            return tg.showAlert("❌ Ошибка сети. Не удалось загрузить фото.");
+        }
+    }
+
+    const data = { name, category, price, stock, image_url };
+    fetch(`/api/admin/products?admin_id=${getMyId()}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+    }).then(() => {
+        closeAdmModal('adm-add-modal'); 
+        loadAdminProducts();
+        document.getElementById('add-name').value = ''; document.getElementById('add-price').value = '';
+        document.getElementById('add-stock').value = ''; document.getElementById('add-img').value = '';
+        tg.showAlert("✅ Товар успешно добавлен!");
+    });
+}
+
+let currentEditProdId = null;
+function openEditModal(id) {
+    const p = adminProducts.find(x => x.id === id);
+    currentEditProdId = id;
+    document.getElementById('edit-price').value = p.price;
+    document.getElementById('edit-desc').value = p.description || '';
+    document.getElementById('adm-edit-modal').classList.remove('hidden');
+}
+
+function saveProductEdit() {
+    const price = parseFloat(document.getElementById('edit-price').value);
+    const desc = document.getElementById('edit-desc').value.trim();
+    if(isNaN(price)) return tg.showAlert("Укажите цену!");
+    fetch(`/api/admin/products/${currentEditProdId}/edit?admin_id=${getMyId()}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({price: price, description: desc})
+    }).then(() => { closeAdmModal('adm-edit-modal'); loadAdminProducts(); });
+}
+
+let currentFlavors = {};
+function openFlavorsModal(id) {
+    const p = adminProducts.find(x => x.id === id);
+    currentEditProdId = id; currentFlavors = Object.assign({}, p.flavors || {});
+    document.getElementById('flavor-prod-name').innerText = `Вкусы: ${p.name}`;
+    renderFlavorsAdmin(); document.getElementById('adm-flavors-modal').classList.remove('hidden');
+}
+
+function renderFlavorsAdmin() {
+    let html = '';
+    for (let [flv, count] of Object.entries(currentFlavors)) {
+        html += `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center; background:var(--card); padding:8px; border-radius:8px; border:1px solid var(--gray);">
+            <span style="color:white; font-size:14px;">${flv}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <b style="color:var(--accent); font-size:14px;">${count} шт.</b>
+                <button onclick="delete currentFlavors['${flv}']; renderFlavorsAdmin()" style="background:var(--danger); border:none; color:white; width:28px; height:28px; border-radius:6px;">✕</button>
+            </div>
+        </div>`;
+    }
+    document.getElementById('flavor-list-admin').innerHTML = html || '<p style="color:var(--gray); font-size:13px; text-align:center;">Вкусов пока нет</p>';
+}
+
+function addFlavorRow() {
+    const name = document.getElementById('new-flavor-name').value.trim();
+    const stock = parseInt(document.getElementById('new-flavor-stock').value);
+    if(!name || isNaN(stock)) return tg.showAlert("Введите название и количество!");
+    currentFlavors[name] = stock;
+    document.getElementById('new-flavor-name').value = ''; document.getElementById('new-flavor-stock').value = '';
+    renderFlavorsAdmin();
+}
+
+function saveFlavors() {
+    fetch(`/api/admin/products/${currentEditProdId}/flavors?admin_id=${getMyId()}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({flavors: currentFlavors})
+    }).then(() => { closeAdmModal('adm-flavors-modal'); loadAdminProducts(); });
+}
+
+function loadAdminStats() {
+    setAdminTabActive('btn-adm-stat');
+    fetch(`/api/admin/stats?admin_id=${getMyId()}`)
+        .then(res => res.json())
+        .then(data => {
+            let html = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <div class="info-card" style="margin:0; text-align:center;">
+                    <span style="color:var(--gray); font-size:12px;">Сегодня</span><br>
+                    <b style="color:var(--text); font-size:18px;">${data.day.rev} ₽</b><br>
+                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.day.aov} ₽</span>
+                </div>
+                <div class="info-card" style="margin:0; text-align:center;">
+                    <span style="color:var(--gray); font-size:12px;">Неделя</span><br>
+                    <b style="color:var(--text); font-size:18px;">${data.week.rev} ₽</b><br>
+                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.week.aov} ₽</span>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div class="info-card" style="margin:0; text-align:center;">
+                    <span style="color:var(--gray); font-size:12px;">Месяц</span><br>
+                    <b style="color:var(--text); font-size:18px;">${data.month.rev} ₽</b><br>
+                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.month.aov} ₽</span>
+                </div>
+                <div class="info-card" style="margin:0; text-align:center;">
+                    <span style="color:var(--gray); font-size:12px;">Год</span><br>
+                    <b style="color:var(--text); font-size:18px;">${data.year.rev} ₽</b><br>
+                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.year.aov} ₽</span>
+                </div>
+            </div>
+            <div class="info-card" style="text-align:center; border: 1px solid var(--accent);">
+                <span style="color:var(--gray); font-size:12px;">ВСЕГО ВЫРУЧКИ</span><br>
+                <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
+                <span style="color:var(--gray); font-size:12px;">Выполнено заказов: ${data.total.cnt}</span>
+            </div>
+            `;
+            document.getElementById('admin-workspace').innerHTML = html;
+        });
+}
+
+function loadAdminOrders() {
+    setAdminTabActive('btn-adm-ord');
+    fetch(`/api/admin/orders?admin_id=${getMyId()}`)
+        .then(res => res.json())
+        .then(data => {
+            let html = '';
+            data.forEach(o => {
+                const isPending = o.status === 'pending';
+                const statusColor = isPending ? '#ffb84d' : (o.status === 'completed' ? '#4caf50' : 'var(--danger)');
+                const statusText = isPending ? 'Ожидает' : (o.status === 'completed' ? 'Выполнен' : 'Отменен');
+                let btns = isPending ? `
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <button onclick="changeOrderStatus('${o.id}', 'completed')" style="flex:1; background:#4caf50; color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">✅ Выполнить</button>
+                        <button onclick="changeOrderStatus('${o.id}', 'cancelled')" style="flex:1; background:var(--danger); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">❌ Отменить</button>
+                    </div>` : '';
+
+                html += `
+                <div class="info-card" style="margin-bottom:15px; text-align:left; border-left: 3px solid ${statusColor};">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0; color:var(--text); font-size:16px;">Заказ #${o.id}</h3>
+                        <span style="color:${statusColor}; font-size:12px; font-weight:bold;">${statusText}</span>
+                    </div>
+                    <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${o.user_name} (ID: ${o.user_id})</p>
+                    <p style="margin:4px 0; font-size:13px;"><b>Тип:</b> ${o.type} | <b>Тел:</b> ${o.phone}</p>
+                    <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--accent); font-weight:bold;">${o.total}₽</span></p>
+                    <hr style="border-color:var(--gray); margin:10px 0;">
+                    <p style="margin:0; font-size:12px; color:var(--gray); line-height:1.6;">${o.items.join('<br>')}</p>
+                    ${btns}
+                </div>`;
+            });
+            document.getElementById('admin-workspace').innerHTML = html || '<p>Заказов пока нет</p>';
+        });
+}
+
+function changeOrderStatus(oid, status) {
+    if(!confirm("Изменить статус заказа?")) return;
+    fetch(`/api/admin/orders/${oid}/status?admin_id=${getMyId()}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({status: status})
+    }).then(() => loadAdminOrders());
+}
+
+function loadAdminUsers() {
+    setAdminTabActive('btn-adm-usr');
+    fetch(`/api/admin/users?admin_id=${getMyId()}`)
+        .then(res => res.json())
+        .then(data => {
+            let html = '';
+            data.forEach(u => {
+                html += `
+                <div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="text-align:left;">
+                        <b style="color:var(--text);">${u.name}</b><br>
+                        <span style="color:var(--gray); font-size:12px;">ID: ${u.id}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:var(--accent); font-weight:bold;">${u.orders}</span><br>
+                        <span style="color:var(--gray); font-size:11px;">заказов</span>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-workspace').innerHTML = html || '<p>База пуста</p>';
+        });
+}
+
+const admBtn = document.getElementById('admin-btn');
+if (admBtn) { admBtn.addEventListener('click', () => loadAdminProducts()); }
