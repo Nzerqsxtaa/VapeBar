@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VAPE BAR 2.0</title>
     
-    <!-- PWA ТЕГИ -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e60000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -154,7 +153,6 @@
         </div>
     </section>
 
-    <!-- МОДАЛКА ГОРОДА -->
     <div id="city-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:white; text-shadow:none; margin-bottom: 5px;">Выберите город</h3>
@@ -171,7 +169,7 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА ТОВАРА (НОВЫЙ ДИЗАЙН КАК НА ФОТО) -->
+    <!-- МОДАЛКА ТОВАРА ПО НОВОМУ ДИЗАЙНУ -->
     <div id="product-modal" class="modal-overlay hidden">
         <div class="modal-content product-details-modal">
             <button class="close-btn top-close" onclick="closeProductModal()">
@@ -179,12 +177,19 @@
             </button>
             <div id="pm-image-container"></div>
             
-            <h3 id="pm-title">0 ₽</h3>
-            <p id="pm-desc" class="pm-description">Название товара</p>
+            <div style="padding: 0 20px;">
+                <h3 id="pm-title" style="color: white; font-size: 22px; font-weight: 800; margin: 0 0 5px 0;">Название товара</h3>
+                <p id="pm-price" style="color: var(--accent); font-size: 20px; font-weight: bold; margin: 0 0 15px 0;">0 ₽</p>
+            </div>
             
-            <div id="pm-flavors-container" class="hidden">
-                <p style="color: var(--gray); font-size: 13px; margin-bottom: 8px; margin-left: 20px;">Вкусы: <span id="pm-selected-flavor" style="color: white; font-weight: bold;"></span></p>
+            <div id="pm-flavors-container" class="hidden" style="margin-bottom: 15px;">
                 <div id="pm-flavor-list" class="flavor-pills-grid"></div>
+            </div>
+
+            <div style="padding: 0 20px; margin-bottom: 5px;">
+                <p style="color: white; font-weight: bold; font-size: 16px; margin: 0 0 8px 0;">Описание товара</p>
+                <p id="pm-desc" class="pm-description" style="margin: 0;"></p>
+                <p id="pm-stock-info" style="font-size: 13px; margin-top: 10px; font-weight: bold;"></p>
             </div>
 
             <div class="pm-footer">
@@ -205,7 +210,6 @@
                 <option value="Расходники">Расходники</option>
                 <option value="Снюс">Снюс</option>
             </select>
-            <!-- ВЫБОР ГОРОДА ДЛЯ АДМИНА -->
             <select id="add-city" class="form-input" style="margin-bottom:10px;">
                 <option value="Междуреченск">Склад: Междуреченск</option>
                 <option value="Мыски">Склад: Мыски</option>
@@ -228,6 +232,20 @@
             <textarea id="edit-desc" class="form-input" rows="4" style="margin-bottom:15px; resize:none;"></textarea>
             <button class="order-btn" onclick="saveProductEdit()">Сохранить</button>
             <button class="close-btn" onclick="closeAdmModal('adm-edit-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adm-flavors-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="flavor-prod-name" style="color:var(--accent); margin-top:0;">Вкусы</h3>
+            <div id="flavor-list-admin" style="text-align:left; margin-bottom:15px; max-height:200px; overflow-y:auto;"></div>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <input type="text" id="new-flavor-name" class="form-input" placeholder="Вкус">
+                <input type="number" id="new-flavor-stock" class="form-input" placeholder="Шт." style="width:80px;">
+                <button class="order-btn" style="width:auto; padding:0 15px;" onclick="addFlavorRow()">+</button>
+            </div>
+            <button class="order-btn" onclick="saveFlavors()">Сохранить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
         </div>
     </div>
 
