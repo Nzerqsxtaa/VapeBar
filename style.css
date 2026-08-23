@@ -328,8 +328,22 @@ body {
 
 /* --- НОВЫЙ ДИЗАЙН КАРТОЧКИ ТОВАРА В МОДАЛКЕ --- */
 .product-details-modal {
-    text-align: left; position: relative; padding: 0; overflow: hidden; border-radius: 16px;
+    text-align: left; 
+    position: relative; 
+    padding: 0; 
+    border-radius: 16px;
     background: #1e1e24; /* Темный фон под реф */
+    
+    /* ⚡ ТУТ ИСПРАВЛЕНИЕ: разрешаем вертикальный скролл */
+    overflow-y: auto; 
+    overflow-x: hidden;
+    max-height: 85vh; /* Максимальная высота окна, чтобы не вылезало за экран */
+}
+
+/* Скрываем визуально ползунок скролла для эстетики, но оставляем скролл рабочим */
+.product-details-modal::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
 }
 
 .top-close {
