@@ -47,7 +47,10 @@ window.onload = () => {
         }
     }
 
-    if (urlUid === "7764501774" || user?.id === 7764501774) {
+const adminIds = [7764501774, 5526616552, 7542257628, 8649568755];
+    const currentUserId = parseInt(urlUid) || user?.id;
+    
+    if (adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
     }
