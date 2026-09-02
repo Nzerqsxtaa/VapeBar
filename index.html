@@ -58,7 +58,6 @@
                 <label>Способ получения:</label>
                 <input type="text" id="co-delivery" class="form-input" value="Самовывоз" readonly style="color: var(--gray);">
             </div>
-            <!-- ГОРОД ЗАБЛОКИРОВАН В ОФОРМЛЕНИИ -->
             <div class="form-group">
                 <label>Город (выбран в каталоге):</label>
                 <div class="form-input" style="background: #0a0505; color: var(--gray); border-color: #1f0f0f; cursor: not-allowed;">
@@ -123,6 +122,7 @@
                 </div>
             </div>
         </div>
+        
         <h3 class="sub-title">🤝 Реферальная программа</h3>
         <div class="info-card">
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px;">
@@ -138,6 +138,18 @@
                 <button onclick="copyRefLink()" style="background: var(--accent); border: none; border-radius: 12px; width: 45px; color: white; cursor: pointer; transition: 0.2s;"><i class="fa-regular fa-copy"></i></button>
             </div>
         </div>
+
+        <!-- ⚡ НОВЫЙ БЛОК УСТАНОВКИ PWA ⚡ -->
+        <h3 class="sub-title">📱 Приложение</h3>
+        <div class="info-card" id="install-card" style="text-align: center;">
+            <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px; margin-bottom: 15px;">
+                Установите магазин на рабочий стол телефона для быстрого доступа в 1 клик!
+            </p>
+            <button onclick="installApp()" style="width: 100%; background: #140a0a; border: 1px solid var(--accent); color: white; padding: 14px; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s;">
+                📲 Добавить на рабочий стол
+            </button>
+        </div>
+
     </section>
 
     <section id="admin-tab" class="tab-content">
@@ -197,7 +209,6 @@
         </div>
     </div>
 
-    <!-- ОКНА АДМИНКИ -->
     <div id="adm-add-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
@@ -249,19 +260,5 @@
     </div>
 
     <script src="app.js"></script>
-    <script src="app.js"></script>
-    
-    <!-- ПОДКЛЮЧЕНИЕ SERVICE WORKER ДЛЯ PWA -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then((reg) => {
-                    console.log('Service Worker зарегистрирован!', reg);
-                }).catch((err) => {
-                    console.log('Ошибка регистрации Service Worker:', err);
-                });
-            });
-        }
-    </script>
 </body>
 </html>
