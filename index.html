@@ -149,11 +149,10 @@
             </button>
         </div>
 
-        <!-- ⚡ НОВЫЙ БЛОК КОНКУРСА ⚡ -->
+        <!-- БЛОК КОНКУРСА -->
         <h3 class="sub-title">🎁 Актуальный розыгрыш</h3>
         <a href="#" onclick="tg.openTelegramLink('https://t.me/+QCW7Gclsu2cyOTQx'); return false;" style="display: block; border-radius: 16px; overflow: hidden; border: 1px solid #2a1515; margin-bottom: 20px; transition: transform 0.2s;">
-            <!-- В src указано имя картинки contest.jpg -->
-            <img src="contest.png" alt="Конкурс" style="width: 100%; display: block; object-fit: cover;">
+            <img src="contest.jpg" alt="Конкурс" style="width: 100%; display: block; object-fit: cover;">
         </a>
 
     </section>
@@ -162,9 +161,11 @@
         <h2 class="page-title">⚙️ Управление</h2>
         <div class="cat-nav" style="margin-bottom: 20px;">
             <button class="c-btn active" id="btn-adm-prod" onclick="loadAdminProducts()">📦 Товары</button>
-            <button class="c-btn" id="btn-adm-stat" onclick="loadAdminStats()">📊 Статистика</button>
+            <button class="c-btn" id="btn-adm-stat" onclick="loadAdminStats()">📊 Стат.</button>
             <button class="c-btn" id="btn-adm-ord" onclick="loadAdminOrders()">🛒 Заказы</button>
             <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()">👥 Клиенты</button>
+            <!-- ⚡ НОВАЯ КНОПКА В АДМИНКЕ ⚡ -->
+            <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()">🎁 Конкурсы</button>
         </div>
         <div id="admin-workspace">
             <p style="text-align:center; color:var(--gray);">Загрузка панели...</p>
@@ -262,6 +263,17 @@
             </div>
             <button class="order-btn" onclick="saveFlavors()">Сохранить</button>
             <button class="close-btn" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- ⚡ НОВОЕ ОКНО: СОЗДАНИЕ КОНКУРСА ⚡ -->
+    <div id="adm-gw-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color:var(--accent); margin-top:0;">🎁 Новый конкурс</h3>
+            <p style="color:var(--gray); font-size:12px; margin-bottom:10px;">При создании нового, старый конкурс автоматически завершится.</p>
+            <textarea id="gw-text" class="form-input" rows="4" placeholder="Текст/описание конкурса..." style="margin-bottom:15px; resize:none;"></textarea>
+            <button class="order-btn" onclick="submitNewGiveaway()">Создать и запустить</button>
+            <button class="close-btn" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
         </div>
     </div>
 
