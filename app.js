@@ -47,10 +47,7 @@ window.onload = () => {
         }
     }
 
-const adminIds = [7764501774, 5526616552, 7542257628, 8649568755];
-    const currentUserId = parseInt(urlUid) || user?.id;
-    
-    if (adminIds.includes(currentUserId)) {
+    if (urlUid === "7764501774" || user?.id === 7764501774) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
     }
@@ -83,7 +80,6 @@ function checkCity() {
 }
 
 function selectCity(city) {
-    // ⚡ АНТИ-БАГ: ОЧИЩАЕМ КОРЗИНУ ЕСЛИ ГОРОД ИЗМЕНИЛСЯ
     if (userCity && userCity !== city) {
         clearCart();
     }
@@ -381,7 +377,6 @@ function loadProfileData() {
             const uRefs = document.getElementById('u-refs');
             if(uRefs) uRefs.innerText = `${data.refs} чел.`;
             const uRefLink = document.getElementById('u-ref-link');
-            // ⚡ ИСПОЛЬЗУЕМ НОВОГО БОТА В ССЫЛКЕ:
             if(uRefLink) uRefLink.value = `https://t.me/order9ode_bot?start=ref_${userId}`;
         })
         .catch(e => console.log('Ошибка профиля:', e));
@@ -672,3 +667,12 @@ function loadAdminUsers() {
 
 const admBtn = document.getElementById('admin-btn');
 if (admBtn) { admBtn.addEventListener('click', () => loadAdminProducts()); }
+
+/* --- ⚡ УСТАНОВКА PWA НА РАБОЧИЙ СТОЛ ⚡ --- */
+function installApp() {
+    if (tg.addToHomeScreen) {
+        tg.addToHomeScreen();
+    } else {
+        tg.showAlert("Ваша версия Telegram не поддерживает быструю установку. Пожалуйста, обновите приложение.");
+    }
+}
