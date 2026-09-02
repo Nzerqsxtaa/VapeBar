@@ -389,9 +389,17 @@ function copyRefLink() {
     tg.showAlert("✅ Реферальная ссылка скопирована!");
 }
 
+function installApp() {
+    if (tg.addToHomeScreen) {
+        tg.addToHomeScreen();
+    } else {
+        tg.showAlert("Ваша версия Telegram не поддерживает быструю установку. Пожалуйста, обновите приложение.");
+    }
+}
+
 /* --- АДМИНКА --- */
 function setAdminTabActive(btnId) {
-    ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr'].forEach(id => {
+    ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.remove('active');
     });
@@ -665,14 +673,65 @@ function loadAdminUsers() {
         });
 }
 
+/* --- ⚡ НОВЫЕ ФУНКЦИИ КОНКУРСОВ В АДМИНКЕ ⚡ --- */
+function loadAdminGiveaways() {
+    setAdminTabActive('btn-adm-gw');
+    fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+        .then(res => res.json())
+        .then(data => {
+            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="document.getElementById('adm-gw-modal').classList.remove('hidden')">🎁 Создать конкурс</button>`;
+            data.forEach(g => {
+                const statusText = g.is_active ? '<span style="color:#4caf50;">Активен</span>' : '<span style="color:var(--gray);">Завершен</span>';
+                const rollBtn = g.is_active ? `<button onclick="rollGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">🎲 Выбрать победителя</button>` : '';
+                
+                html += `
+                <div class="info-card" style="margin-bottom:10px; text-align:left;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <b style="color:var(--text);">Конкурс #${g.id}</b>
+                        ${statusText}
+                    </div>
+                    <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${g.text}</p>
+                    <span style="font-size:13px; color:var(--accent);">Участников: <b>${g.parts}</b></span>
+                    ${rollBtn}
+                </div>`;
+            });
+            document.getElementById('admin-workspace').innerHTML = html || '<p>Конкурсов пока нет</p>';
+        })
+        .catch(err => tg.showAlert("Ошибка загрузки: " + err.message));
+}
+
+function submitNewGiveaway() {
+    const text = document.getElementById('gw-text').value.trim();
+    if(!text) return tg.showAlert("Введите текст/описание конкурса!");
+    
+    fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: text})
+    })
+    .then(() => {
+        closeAdmModal('adm-gw-modal');
+        document.getElementById('gw-text').value = '';
+        loadAdminGiveaways();
+        tg.showAlert("✅ Конкурс успешно создан и запущен!");
+    })
+    .catch(err => tg.showAlert("❌ Ошибка сервера: " + err.message));
+}
+
+function rollGiveaway(id) {
+    if(!confirm("Выбрать случайного победителя и завершить этот конкурс?")) return;
+    
+    fetch(`/api/admin/giveaways/${id}/roll?admin_id=${getMyId()}`, { method: 'POST' })
+    .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+    })
+    .then((data) => {
+        tg.showAlert(`🎉 Победитель: ${data.winner_name}! Сообщение отправлено победителю и тебе в ЛС.`);
+        loadAdminGiveaways();
+    })
+    .catch(err => {
+        tg.showAlert("❌ Ошибка: В розыгрыше нет участников!");
+    });
+}
+
 const admBtn = document.getElementById('admin-btn');
 if (admBtn) { admBtn.addEventListener('click', () => loadAdminProducts()); }
-
-/* --- ⚡ УСТАНОВКА PWA НА РАБОЧИЙ СТОЛ ⚡ --- */
-function installApp() {
-    if (tg.addToHomeScreen) {
-        tg.addToHomeScreen();
-    } else {
-        tg.showAlert("Ваша версия Telegram не поддерживает быструю установку. Пожалуйста, обновите приложение.");
-    }
-}
