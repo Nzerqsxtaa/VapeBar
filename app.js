@@ -80,6 +80,10 @@ function checkCity() {
 }
 
 function selectCity(city) {
+    // ⚡ АНТИ-БАГ: ОЧИЩАЕМ КОРЗИНУ ЕСЛИ ГОРОД ИЗМЕНИЛСЯ
+    if (userCity && userCity !== city) {
+        clearCart();
+    }
     userCity = city;
     localStorage.setItem('vapebar_city', city);
     document.getElementById('city-modal').classList.add('hidden');
@@ -374,7 +378,8 @@ function loadProfileData() {
             const uRefs = document.getElementById('u-refs');
             if(uRefs) uRefs.innerText = `${data.refs} чел.`;
             const uRefLink = document.getElementById('u-ref-link');
-            if(uRefLink) uRefLink.value = `https://t.me/CloudeHelper51_bot?start=ref_${userId}`;
+            // ⚡ ИСПОЛЬЗУЕМ НОВОГО БОТА В ССЫЛКЕ:
+            if(uRefLink) uRefLink.value = `https://t.me/order9ode_bot?start=ref_${userId}`;
         })
         .catch(e => console.log('Ошибка профиля:', e));
 }
@@ -411,7 +416,6 @@ function loadAdminProducts() {
             adminProducts = data;
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openAddModal()">➕ Добавить товар</button>`;
             data.forEach(p => {
-                // ВАЖНО: ТУТ ВОЗВРАЩЕНЫ 3 КНОПКИ: ВКУСЫ, ИЗМЕНИТЬ, УДАЛИТЬ
                 html += `
                 <div class="info-card" style="margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
