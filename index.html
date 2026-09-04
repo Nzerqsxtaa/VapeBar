@@ -149,9 +149,10 @@
             </button>
         </div>
 
-        <h3 class="sub-title">🎁 Актуальный розыгрыш</h3>
-        <a href="#" onclick="tg.openTelegramLink('https://t.me/+QCW7Gclsu2cyOTQx'); return false;" style="display: block; border-radius: 16px; overflow: hidden; border: 1px solid #2a1515; margin-bottom: 20px; transition: transform 0.2s;">
-            <img src="contest.png" alt="Конкурс" style="width: 100%; display: block; object-fit: cover;">
+        <!-- ⚡ БЛОК КОНКУРСА ТЕПЕРЬ ОТКРЫВАЕТ ОКНО СПИСКА КОНКУРСОВ ⚡ -->
+        <h3 class="sub-title">🎁 Актуальные розыгрыши</h3>
+        <a href="#" onclick="openClientGiveaways(); return false;" style="display: block; border-radius: 16px; overflow: hidden; border: 1px solid #2a1515; margin-bottom: 20px; transition: transform 0.2s;">
+            <img src="contest.png" alt="Конкурсы" style="width: 100%; display: block; object-fit: cover;">
         </a>
 
     </section>
@@ -163,7 +164,6 @@
             <button class="c-btn" id="btn-adm-stat" onclick="loadAdminStats()">📊 Стат.</button>
             <button class="c-btn" id="btn-adm-ord" onclick="loadAdminOrders()">🛒 Заказы</button>
             <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()">👥 Клиенты</button>
-            <!-- ⚡ КНОПКА ВОЗВРАЩЕНА СЮДА ⚡ -->
             <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()">🎁 Конкурсы</button>
         </div>
         <div id="admin-workspace">
@@ -171,7 +171,7 @@
         </div>
     </section>
 
-    <!-- МОДАЛКИ (ГОРОД И ТОВАР) -->
+    <!-- МОДАЛКИ -->
     <div id="city-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:white; text-shadow:none; margin-bottom: 5px;">Выберите город</h3>
@@ -216,7 +216,6 @@
         </div>
     </div>
 
-    <!-- ОКНА АДМИНКИ (ТОВАРЫ) -->
     <div id="adm-add-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
@@ -267,14 +266,30 @@
         </div>
     </div>
 
-    <!-- ⚡ НОВОЕ ОКНО: СОЗДАНИЕ КОНКУРСА ⚡ -->
+    <!-- ⚡ НОВОЕ ОКНО: СОЗДАНИЕ КОНКУРСА С НОВЫМИ ПОЛЯМИ ⚡ -->
     <div id="adm-gw-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">🎁 Новый конкурс</h3>
-            <p style="color:var(--gray); font-size:12px; margin-bottom:10px;">При создании нового, старый активный конкурс завершится.</p>
-            <textarea id="gw-text" class="form-input" rows="4" placeholder="Текст/описание (что разыгрываем)..." style="margin-bottom:15px; resize:none;"></textarea>
+            <textarea id="gw-text" class="form-input" rows="3" placeholder="Описание (что разыгрываем)..." style="margin-bottom:10px; resize:none;"></textarea>
+            <input type="number" id="gw-winners" class="form-input" placeholder="Количество мест (шт)" value="1" style="margin-bottom:10px;">
+            <input type="number" id="gw-min-order" class="form-input" placeholder="Мин. заказ для участия (₽, 0 = без лимита)" style="margin-bottom:10px;">
+            <input type="text" id="gw-end-date" class="form-input" placeholder="Дата итогов (например: 25 сентября)" style="margin-bottom:15px;">
+            
             <button class="order-btn" onclick="submitNewGiveaway()">Создать и запустить</button>
             <button class="close-btn" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <!-- ⚡ НОВОЕ ОКНО: СПИСОК КОНКУРСОВ ДЛЯ КЛИЕНТА ⚡ -->
+    <div id="client-gw-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="padding-top: 40px;">
+            <button class="close-btn top-close" onclick="closeAdmModal('client-gw-modal')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 style="color:var(--accent); margin-top:0;">🎁 Активные конкурсы</h3>
+            <div id="client-gw-list" style="text-align: left; max-height: 60vh; overflow-y: auto; margin-bottom: 15px;">
+                <p style="text-align:center; color:var(--gray);">Загрузка...</p>
+            </div>
         </div>
     </div>
 
