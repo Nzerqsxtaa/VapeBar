@@ -320,7 +320,7 @@ function submitCheckout() {
     if(phone.length < 7) return tg.showAlert("Пожалуйста, введите корректный номер телефона");
     if(!userCity) return tg.showAlert("Сначала выберите город!");
 
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = newSearchParams(window.location.search);
     const userId = parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id);
 
     const orderData = {
@@ -395,6 +395,88 @@ function installApp() {
     } else {
         tg.showAlert("Ваша версия Telegram не поддерживает быструю установку. Пожалуйста, обновите приложение.");
     }
+}
+
+/* --- ⚡ КОНКУРСЫ ДЛЯ КЛИЕНТА ⚡ --- */
+function openClientGiveaways() {
+    document.getElementById('client-gw-modal').classList.remove('hidden');
+    const list = document.getElementById('client-gw-list');
+    list.innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка конкурсов...</p>';
+    
+    fetch(`/api/giveaways?user_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    .then(res => res.json())
+    .then(data => {
+        if (data.length === 0) {
+            list.innerHTML = '<p style="text-align:center; color:var(--gray); padding: 20px;">На данный момент нет активных конкурсов 😔</p>';
+            return;
+        }
+        
+        let html = '';
+        data.forEach(g => {
+            let btnHtml = '';
+            if (g.is_participating) {
+                btnHtml = `<button disabled style="width:100%; margin-top:10px; background:#1a2e1a; color:#4caf50; border:1px solid #4caf50; padding:10px; border-radius:12px; font-weight:bold;">✅ Вы уже участвуете</button>`;
+            } else {
+                btnHtml = `<button onclick="joinGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:10px; border-radius:12px; font-weight:bold; cursor:pointer; box-shadow: 0 4px 10px rgba(230, 0, 0, 0.3);">🎁 Участвую</button>`;
+            }
+            
+            let minOrderText = g.min_order > 0 ? `Заказ от ${g.min_order} ₽` : 'Без ограничений';
+            
+            html += `
+            <div class="info-card" style="margin-bottom:15px; border: 1px solid var(--accent); padding: 15px;">
+                <h4 style="color:white; margin:0 0 10px 0; font-size:16px;">Розыгрыш #${g.id}</h4>
+                <p style="font-size:13px; color:var(--gray); line-height:1.4; margin-bottom:15px;">${g.text}</p>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+                    <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center;">
+                        <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Призовых мест</span>
+                        <b style="color:white; font-size:14px;">${g.winners_count}</b>
+                    </div>
+                    <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center;">
+                        <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Условие</span>
+                        <b style="color:var(--accent); font-size:13px;">${minOrderText}</b>
+                    </div>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--gray);">
+                    <span>📅 Итоги: <b style="color:white;">${g.end_date}</b></span>
+                    <span>👥 Участников: <b style="color:white;">${g.parts_count}</b></span>
+                </div>
+                
+                ${btnHtml}
+            </div>`;
+        });
+        list.innerHTML = html;
+    })
+    .catch(err => {
+        list.innerHTML = `<p style="text-align:center; color:var(--danger);">Ошибка: ${err.message}</p>`;
+    });
+}
+
+function joinGiveaway(gw_id) {
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    
+    fetch(`/api/giveaways/${gw_id}/join`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: getMyId()})
+    })
+    .then(async res => {
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Неизвестная ошибка");
+        }
+        return res.json();
+    })
+    .then(() => {
+        tg.showAlert("✅ Поздравляем! Вы успешно стали участником конкурса!");
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        openClientGiveaways(); 
+    })
+    .catch(err => {
+        tg.showAlert(`❌ ${err.message}`);
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    });
 }
 
 /* --- АДМИНКА --- */
@@ -673,7 +755,7 @@ function loadAdminUsers() {
         });
 }
 
-/* --- ⚡ НОВЫЕ ФУНКЦИИ КОНКУРСОВ В АДМИНКЕ ⚡ --- */
+/* --- ⚡ КОНКУРСЫ В АДМИНКЕ (РАСШИРЕННЫЕ) ⚡ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -682,7 +764,7 @@ function loadAdminGiveaways() {
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="document.getElementById('adm-gw-modal').classList.remove('hidden')">🎁 Создать конкурс</button>`;
             data.forEach(g => {
                 const statusText = g.is_active ? '<span style="color:#4caf50;">Активен</span>' : '<span style="color:var(--gray);">Завершен</span>';
-                const rollBtn = g.is_active ? `<button onclick="rollGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">🎲 Выбрать победителя</button>` : '';
+                const rollBtn = g.is_active ? `<button onclick="rollGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">🎲 Подвести итоги</button>` : '';
                 
                 html += `
                 <div class="info-card" style="margin-bottom:10px; text-align:left;">
@@ -691,6 +773,12 @@ function loadAdminGiveaways() {
                         ${statusText}
                     </div>
                     <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${g.text}</p>
+                    
+                    <div style="font-size:11px; color:var(--gray); background:#140a0a; padding:6px; border-radius:6px; margin-bottom:8px;">
+                        Мест: <b>${g.winners_count}</b> | Заказ от: <b>${g.min_order} ₽</b><br>
+                        Итоги: <b>${g.end_date || 'Не указано'}</b>
+                    </div>
+                    
                     <span style="font-size:13px; color:var(--accent);">Участников: <b>${g.parts}</b></span>
                     ${rollBtn}
                 </div>`;
@@ -702,14 +790,28 @@ function loadAdminGiveaways() {
 
 function submitNewGiveaway() {
     const text = document.getElementById('gw-text').value.trim();
+    const winnersCount = parseInt(document.getElementById('gw-winners').value) || 1;
+    const minOrder = parseFloat(document.getElementById('gw-min-order').value) || 0;
+    const endDate = document.getElementById('gw-end-date').value.trim() || 'Не указана';
+    
     if(!text) return tg.showAlert("Введите текст/описание конкурса!");
     
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: text})
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({
+            text: text,
+            winners_count: winnersCount,
+            min_order: minOrder,
+            end_date: endDate
+        })
     })
     .then(() => {
         closeAdmModal('adm-gw-modal');
         document.getElementById('gw-text').value = '';
+        document.getElementById('gw-winners').value = '1';
+        document.getElementById('gw-min-order').value = '';
+        document.getElementById('gw-end-date').value = '';
         loadAdminGiveaways();
         tg.showAlert("✅ Конкурс успешно создан и запущен!");
     })
@@ -717,7 +819,7 @@ function submitNewGiveaway() {
 }
 
 function rollGiveaway(id) {
-    if(!confirm("Выбрать случайного победителя и завершить этот конкурс?")) return;
+    if(!confirm("Завершить этот конкурс и выбрать победителей?")) return;
     
     fetch(`/api/admin/giveaways/${id}/roll?admin_id=${getMyId()}`, { method: 'POST' })
     .then(async (res) => {
@@ -725,7 +827,8 @@ function rollGiveaway(id) {
         return res.json();
     })
     .then((data) => {
-        tg.showAlert(`🎉 Победитель: ${data.winner_name}! Сообщение отправлено победителю и тебе в ЛС.`);
+        const names = data.winner_names.join(", ");
+        tg.showAlert(`🎉 Победители: ${names}! Отчет отправлен в ЛС.`);
         loadAdminGiveaways();
     })
     .catch(err => {
