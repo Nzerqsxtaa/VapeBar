@@ -47,7 +47,6 @@ window.onload = () => {
         }
     }
 
-    // ⚡ ДОБАВЛЕНЫ НОВЫЕ АДМИНЫ ⚡
     const adminIds = [7764501774, 5526616552, 8649568755, 7542257628];
     const currentUserId = parseInt(urlUid) || user?.id;
     
@@ -401,7 +400,7 @@ function installApp() {
     }
 }
 
-/* --- ⚡ КОНКУРСЫ ДЛЯ КЛИЕНТА С ДАТАМИ ⚡ --- */
+/* --- КОНКУРСЫ ДЛЯ КЛИЕНТА --- */
 function openClientGiveaways() {
     document.getElementById('client-gw-modal').classList.remove('hidden');
     const list = document.getElementById('client-gw-list');
@@ -502,6 +501,16 @@ function setAdminTabActive(btnId) {
         if(el) el.classList.remove('active');
     });
     document.getElementById(btnId).classList.add('active');
+    
+    const statsFilters = document.getElementById('admin-stats-filters');
+    if (statsFilters) {
+        if (btnId === 'btn-adm-stat') {
+            statsFilters.classList.remove('hidden');
+        } else {
+            statsFilters.classList.add('hidden');
+        }
+    }
+
     document.getElementById('admin-workspace').innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка...</p>';
 }
 
@@ -661,43 +670,72 @@ function saveFlavors() {
 
 function loadAdminStats() {
     setAdminTabActive('btn-adm-stat');
-    fetch(`/api/admin/stats?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    fetchAdminStatsData();
+}
+
+function applyAdminStatsFilter() {
+    fetchAdminStatsData();
+}
+
+function fetchAdminStatsData() {
+    const city = document.getElementById('stat-city').value;
+    const startInput = document.getElementById('stat-start').value;
+    const endInput = document.getElementById('stat-end').value;
+    
+    let url = `/api/admin/stats?admin_id=${getMyId()}&city=${encodeURIComponent(city)}`;
+    
+    if (startInput && endInput) {
+        const startTs = Math.floor(new Date(startInput + "T00:00:00").getTime() / 1000);
+        const endTs = Math.floor(new Date(endInput + "T23:59:59").getTime() / 1000);
+        url += `&start_ts=${startTs}&end_ts=${endTs}`;
+    }
+
+    fetch(url, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(async res => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
         .then(data => {
-            let html = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                <div class="info-card" style="margin:0; text-align:center;">
-                    <span style="color:var(--gray); font-size:12px;">Сегодня</span><br>
-                    <b style="color:var(--text); font-size:18px;">${data.day.rev} ₽</b><br>
-                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.day.aov} ₽</span>
+            let html = '';
+            if (data.custom) {
+                html = `
+                <div class="info-card" style="text-align:center; border: 1px solid var(--accent); margin-bottom: 15px;">
+                    <span style="color:var(--gray); font-size:12px;">ВЫБРАННЫЙ ПЕРИОД (${city})</span><br>
+                    <b style="color:var(--accent); font-size:24px;">${data.custom.rev} ₽</b><br>
+                    <span style="color:var(--gray); font-size:12px;">Заказов: ${data.custom.cnt} | Ср. чек: ${data.custom.aov} ₽</span>
+                </div>`;
+            } else {
+                html = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div class="info-card" style="margin:0; text-align:center;">
+                        <span style="color:var(--gray); font-size:12px;">Сегодня</span><br>
+                        <b style="color:var(--text); font-size:18px;">${data.day.rev} ₽</b><br>
+                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.day.aov} ₽</span>
+                    </div>
+                    <div class="info-card" style="margin:0; text-align:center;">
+                        <span style="color:var(--gray); font-size:12px;">Неделя</span><br>
+                        <b style="color:var(--text); font-size:18px;">${data.week.rev} ₽</b><br>
+                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.week.aov} ₽</span>
+                    </div>
                 </div>
-                <div class="info-card" style="margin:0; text-align:center;">
-                    <span style="color:var(--gray); font-size:12px;">Неделя</span><br>
-                    <b style="color:var(--text); font-size:18px;">${data.week.rev} ₽</b><br>
-                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.week.aov} ₽</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                    <div class="info-card" style="margin:0; text-align:center;">
+                        <span style="color:var(--gray); font-size:12px;">Месяц</span><br>
+                        <b style="color:var(--text); font-size:18px;">${data.month.rev} ₽</b><br>
+                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.month.aov} ₽</span>
+                    </div>
+                    <div class="info-card" style="margin:0; text-align:center;">
+                        <span style="color:var(--gray); font-size:12px;">Год</span><br>
+                        <b style="color:var(--text); font-size:18px;">${data.year.rev} ₽</b><br>
+                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.year.aov} ₽</span>
+                    </div>
                 </div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                <div class="info-card" style="margin:0; text-align:center;">
-                    <span style="color:var(--gray); font-size:12px;">Месяц</span><br>
-                    <b style="color:var(--text); font-size:18px;">${data.month.rev} ₽</b><br>
-                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.month.aov} ₽</span>
-                </div>
-                <div class="info-card" style="margin:0; text-align:center;">
-                    <span style="color:var(--gray); font-size:12px;">Год</span><br>
-                    <b style="color:var(--text); font-size:18px;">${data.year.rev} ₽</b><br>
-                    <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.year.aov} ₽</span>
-                </div>
-            </div>
-            <div class="info-card" style="text-align:center; border: 1px solid var(--accent);">
-                <span style="color:var(--gray); font-size:12px;">ВСЕГО ВЫРУЧКИ</span><br>
-                <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
-                <span style="color:var(--gray); font-size:12px;">Выполнено заказов: ${data.total.cnt}</span>
-            </div>
-            `;
+                <div class="info-card" style="text-align:center; border: 1px solid var(--accent);">
+                    <span style="color:var(--gray); font-size:12px;">ВСЕГО ВЫРУЧКИ (${city})</span><br>
+                    <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
+                    <span style="color:var(--gray); font-size:12px;">Выполнено заказов: ${data.total.cnt}</span>
+                </div>`;
+            }
             document.getElementById('admin-workspace').innerHTML = html;
         })
         .catch(err => tg.showAlert("❌ Ошибка загрузки статистики: " + err.message));
@@ -771,7 +809,7 @@ function loadAdminUsers() {
         });
 }
 
-/* --- ⚡ КОНКУРСЫ В АДМИНКЕ (С ДАТАМИ) ⚡ --- */
+/* --- КОНКУРСЫ В АДМИНКЕ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -818,11 +856,9 @@ function submitNewGiveaway() {
     const minOrder = parseFloat(document.getElementById('gw-min-order').value) || 0;
     const endDate = document.getElementById('gw-end-date').value.trim() || 'Не указана';
     
-    // Получаем даты из календарей
     const startDateInput = document.getElementById('gw-order-start').value;
     const endDateInput = document.getElementById('gw-order-end').value;
 
-    // Конвертируем в UNIX-секунды
     let orderStartUnix = 0;
     let orderEndUnix = 2000000000;
 
@@ -849,7 +885,6 @@ function submitNewGiveaway() {
     })
     .then(() => {
         closeAdmModal('adm-gw-modal');
-        // Очищаем форму
         document.getElementById('gw-text').value = '';
         document.getElementById('gw-winners').value = '1';
         document.getElementById('gw-min-order').value = '';
