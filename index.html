@@ -31,6 +31,7 @@
     </nav>
 
     <section id="catalog-tab" class="tab-content active">
+        <!-- ⚡ ДОБАВЛЕНА КАТЕГОРИЯ ВАТКИ ⚡ -->
         <div class="cat-nav">
             <button class="c-btn active" onclick="filterCat('Все', this)">Все</button>
             <button class="c-btn" onclick="filterCat('Одноразки', this)">Одноразки</button>
@@ -38,6 +39,7 @@
             <button class="c-btn" onclick="filterCat('Устройства', this)">Устройства</button>
             <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
             <button class="c-btn" onclick="filterCat('Снюс', this)">Снюс</button>
+            <button class="c-btn" onclick="filterCat('Ватки', this)">Ватки</button>
         </div>
         <div id="product-grid" class="grid"></div>
     </section>
@@ -165,6 +167,23 @@
             <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()">👥 Клиенты</button>
             <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()">🎁 Конкурсы</button>
         </div>
+
+        <!-- ⚡ НОВЫЕ ФИЛЬТРЫ ДЛЯ СТАТИСТИКИ ⚡ -->
+        <div id="admin-stats-filters" class="hidden info-card" style="margin-bottom: 15px; text-align: left; padding: 12px;">
+            <label style="color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Город:</label>
+            <select id="stat-city" class="form-input" style="margin-bottom: 10px;">
+                <option value="Все">Все города</option>
+                <option value="Междуреченск">Междуреченск</option>
+                <option value="Мыски">Мыски</option>
+            </select>
+            <label style="color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Период (от и до):</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="date" id="stat-start" class="form-input" style="color-scheme: dark; padding: 10px 5px;">
+                <input type="date" id="stat-end" class="form-input" style="color-scheme: dark; padding: 10px 5px;">
+            </div>
+            <button class="order-btn" onclick="applyAdminStatsFilter()" style="padding: 10px;">Показать статистику</button>
+        </div>
+
         <div id="admin-workspace">
             <p style="text-align:center; color:var(--gray);">Загрузка панели...</p>
         </div>
@@ -220,12 +239,14 @@
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
             <input type="text" id="add-name" class="form-input" placeholder="Название товара" style="margin-bottom:10px;">
+            <!-- ⚡ ДОБАВЛЕНА КАТЕГОРИЯ ВАТКИ В ВЫБОР ⚡ -->
             <select id="add-cat" class="form-input" style="margin-bottom:10px;">
                 <option value="Одноразки">Одноразки</option>
                 <option value="Жидкости">Жидкости</option>
                 <option value="Устройства">Устройства</option>
                 <option value="Расходники">Расходники</option>
                 <option value="Снюс">Снюс</option>
+                <option value="Ватки">Ватки</option>
             </select>
             <select id="add-city" class="form-input" style="margin-bottom:10px;">
                 <option value="Междуреченск">Склад: Междуреченск</option>
@@ -266,7 +287,7 @@
         </div>
     </div>
 
-    <!-- ⚡ НОВОЕ ОКНО: СОЗДАНИЕ КОНКУРСА С ДАТАМИ ЗАКАЗОВ ⚡ -->
+    <!-- ОКНО: СОЗДАНИЕ КОНКУРСА -->
     <div id="adm-gw-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">🎁 Новый конкурс</h3>
@@ -287,7 +308,7 @@
         </div>
     </div>
 
-    <!-- ⚡ ОКНО: СПИСОК КОНКУРСОВ ДЛЯ КЛИЕНТА ⚡ -->
+    <!-- ОКНО: СПИСОК КОНКУРСОВ ДЛЯ КЛИЕНТА -->
     <div id="client-gw-modal" class="modal-overlay hidden">
         <div class="modal-content" style="padding-top: 40px;">
             <button class="close-btn top-close" onclick="closeAdmModal('client-gw-modal')">
