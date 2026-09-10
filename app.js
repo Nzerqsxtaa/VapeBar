@@ -320,7 +320,7 @@ function submitCheckout() {
     if(phone.length < 7) return tg.showAlert("Пожалуйста, введите корректный номер телефона");
     if(!userCity) return tg.showAlert("Сначала выберите город!");
 
-    const urlParams = newSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(window.location.search);
     const userId = parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id);
 
     const orderData = {
@@ -397,7 +397,7 @@ function installApp() {
     }
 }
 
-/* --- ⚡ КОНКУРСЫ ДЛЯ КЛИЕНТА ⚡ --- */
+/* --- ⚡ КОНКУРСЫ ДЛЯ КЛИЕНТА С ДАТАМИ ⚡ --- */
 function openClientGiveaways() {
     document.getElementById('client-gw-modal').classList.remove('hidden');
     const list = document.getElementById('client-gw-list');
@@ -422,12 +422,19 @@ function openClientGiveaways() {
             
             let minOrderText = g.min_order > 0 ? `Заказ от ${g.min_order} ₽` : 'Без ограничений';
             
+            let dateRangeText = "За всё время";
+            if (g.order_start > 0 || g.order_end < 2000000000) {
+                const stStr = g.order_start > 0 ? new Date(g.order_start * 1000).toLocaleDateString('ru-RU') : '...';
+                const enStr = g.order_end < 2000000000 ? new Date(g.order_end * 1000).toLocaleDateString('ru-RU') : '...';
+                dateRangeText = `с ${stStr} по ${enStr}`;
+            }
+            
             html += `
             <div class="info-card" style="margin-bottom:15px; border: 1px solid var(--accent); padding: 15px;">
                 <h4 style="color:white; margin:0 0 10px 0; font-size:16px;">Розыгрыш #${g.id}</h4>
                 <p style="font-size:13px; color:var(--gray); line-height:1.4; margin-bottom:15px;">${g.text}</p>
                 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center;">
                         <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Призовых мест</span>
                         <b style="color:white; font-size:14px;">${g.winners_count}</b>
@@ -436,6 +443,11 @@ function openClientGiveaways() {
                         <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Условие</span>
                         <b style="color:var(--accent); font-size:13px;">${minOrderText}</b>
                     </div>
+                </div>
+                
+                <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center; margin-bottom: 15px;">
+                    <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Участвуют заказы оформленные:</span>
+                    <b style="color:white; font-size:13px;">${dateRangeText}</b>
                 </div>
                 
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--gray);">
@@ -755,7 +767,7 @@ function loadAdminUsers() {
         });
 }
 
-/* --- ⚡ КОНКУРСЫ В АДМИНКЕ (РАСШИРЕННЫЕ) ⚡ --- */
+/* --- ⚡ КОНКУРСЫ В АДМИНКЕ (С ДАТАМИ) ⚡ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -766,6 +778,13 @@ function loadAdminGiveaways() {
                 const statusText = g.is_active ? '<span style="color:#4caf50;">Активен</span>' : '<span style="color:var(--gray);">Завершен</span>';
                 const rollBtn = g.is_active ? `<button onclick="rollGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">🎲 Подвести итоги</button>` : '';
                 
+                let dateRangeText = "За всё время";
+                if (g.order_start > 0 || g.order_end < 2000000000) {
+                    const stStr = g.order_start > 0 ? new Date(g.order_start * 1000).toLocaleDateString('ru-RU') : '...';
+                    const enStr = g.order_end < 2000000000 ? new Date(g.order_end * 1000).toLocaleDateString('ru-RU') : '...';
+                    dateRangeText = `с ${stStr} по ${enStr}`;
+                }
+
                 html += `
                 <div class="info-card" style="margin-bottom:10px; text-align:left;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -776,6 +795,7 @@ function loadAdminGiveaways() {
                     
                     <div style="font-size:11px; color:var(--gray); background:#140a0a; padding:6px; border-radius:6px; margin-bottom:8px;">
                         Мест: <b>${g.winners_count}</b> | Заказ от: <b>${g.min_order} ₽</b><br>
+                        Период заказов: <b>${dateRangeText}</b><br>
                         Итоги: <b>${g.end_date || 'Не указано'}</b>
                     </div>
                     
@@ -794,6 +814,21 @@ function submitNewGiveaway() {
     const minOrder = parseFloat(document.getElementById('gw-min-order').value) || 0;
     const endDate = document.getElementById('gw-end-date').value.trim() || 'Не указана';
     
+    // Получаем даты из календарей
+    const startDateInput = document.getElementById('gw-order-start').value;
+    const endDateInput = document.getElementById('gw-order-end').value;
+
+    // Конвертируем в UNIX-секунды
+    let orderStartUnix = 0;
+    let orderEndUnix = 2000000000;
+
+    if (startDateInput) {
+        orderStartUnix = Math.floor(new Date(startDateInput + "T00:00:00").getTime() / 1000);
+    }
+    if (endDateInput) {
+        orderEndUnix = Math.floor(new Date(endDateInput + "T23:59:59").getTime() / 1000);
+    }
+    
     if(!text) return tg.showAlert("Введите текст/описание конкурса!");
     
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, {
@@ -803,15 +838,21 @@ function submitNewGiveaway() {
             text: text,
             winners_count: winnersCount,
             min_order: minOrder,
-            end_date: endDate
+            end_date: endDate,
+            order_start: orderStartUnix,
+            order_end: orderEndUnix
         })
     })
     .then(() => {
         closeAdmModal('adm-gw-modal');
+        // Очищаем форму
         document.getElementById('gw-text').value = '';
         document.getElementById('gw-winners').value = '1';
         document.getElementById('gw-min-order').value = '';
         document.getElementById('gw-end-date').value = '';
+        document.getElementById('gw-order-start').value = '';
+        document.getElementById('gw-order-end').value = '';
+        
         loadAdminGiveaways();
         tg.showAlert("✅ Конкурс успешно создан и запущен!");
     })
