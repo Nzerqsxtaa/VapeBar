@@ -59,6 +59,12 @@ window.onload = () => {
     updateCartUI();
     loadProfileData();
     if(userCity) loadCatalog();
+
+    // Слушаем изменение способа оплаты, чтобы динамически обновлять подсказку по бонусам
+    const paymentSelect = document.getElementById('co-payment');
+    if(paymentSelect) {
+        paymentSelect.addEventListener('change', updateBonusHint);
+    }
 };
 
 function loadCatalog() {
@@ -297,8 +303,27 @@ function openCheckout() {
     
     if(bonuses <= 0) document.getElementById('bonus-group').style.display = 'none';
 
+    updateBonusHint();
+
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
+}
+
+function updateBonusHint() {
+    const payment = document.getElementById('co-payment').value;
+    const bonusGroupLabel = document.querySelector('#bonus-group label');
+    if(!bonusGroupLabel) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const bonuses = parseInt(urlParams.get('bonuses') || '0');
+
+    let hintText = `Списать бонусы (<span id="co-bonus-count" style="color:#e60000; font-weight:bold;">${bonuses}</span> ₽)`;
+    if (payment === "Наличные") {
+        hintText += ` <small style="display:block; color:var(--gray); font-size:11px;">(кратно 50₽ для наличных)</small>`;
+    } else {
+        hintText += ` <small style="display:block; color:var(--gray); font-size:11px;">(кратно 10₽ для перевода)</small>`;
+    }
+    bonusGroupLabel.innerHTML = hintText;
 }
 
 function backToCart() {
@@ -533,7 +558,7 @@ function loadAdminProducts() {
                 <div class="info-card" style="margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <div style="text-align:left;">
-                            <b style="color:var(--text);">[${p.city}] ${p.name}</b><br>
+                            <b style="color:var(--text);">${p.name}</b><br>
                             <span style="color:var(--gray); font-size:12px;">${p.category} | ${p.price}₽</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px;">
@@ -571,7 +596,6 @@ async function submitNewProduct() {
     const category = document.getElementById('add-cat').value;
     const price = parseFloat(document.getElementById('add-price').value);
     const stock = parseInt(document.getElementById('add-stock').value) || 0;
-    const city = document.getElementById('add-city').value;
     const imgInput = document.getElementById('add-img');
     
     if(!name || isNaN(price)) return tg.showAlert("Заполните название и цену!");
@@ -592,7 +616,7 @@ async function submitNewProduct() {
         }
     }
 
-    const data = { name, category, price, stock, image_url, city };
+    const data = { name, category, price, stock, image_url };
     fetch(`/api/admin/products?admin_id=${getMyId()}`, {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
     })
@@ -605,7 +629,7 @@ async function submitNewProduct() {
         loadAdminProducts();
         document.getElementById('add-name').value = ''; document.getElementById('add-price').value = '';
         document.getElementById('add-stock').value = ''; document.getElementById('add-img').value = '';
-        tg.showAlert(`✅ Товар добавлен на склад: ${city}!`);
+        tg.showAlert(`✅ Товар успешно добавлен!`);
     })
     .catch(err => {
         tg.showAlert("❌ Ошибка сервера: " + err.message);
@@ -678,11 +702,10 @@ function applyAdminStatsFilter() {
 }
 
 function fetchAdminStatsData() {
-    const city = document.getElementById('stat-city').value;
     const startInput = document.getElementById('stat-start').value;
     const endInput = document.getElementById('stat-end').value;
     
-    let url = `/api/admin/stats?admin_id=${getMyId()}&city=${encodeURIComponent(city)}`;
+    let url = `/api/admin/stats?admin_id=${getMyId()}`;
     
     if (startInput && endInput) {
         const startTs = Math.floor(new Date(startInput + "T00:00:00").getTime() / 1000);
@@ -700,7 +723,7 @@ function fetchAdminStatsData() {
             if (data.custom) {
                 html = `
                 <div class="info-card" style="text-align:center; border: 1px solid var(--accent); margin-bottom: 15px;">
-                    <span style="color:var(--gray); font-size:12px;">ВЫБРАННЫЙ ПЕРИОД (${city})</span><br>
+                    <span style="color:var(--gray); font-size:12px;">ВЫБРАННЫЙ ПЕРИОД</span><br>
                     <b style="color:var(--accent); font-size:24px;">${data.custom.rev} ₽</b><br>
                     <span style="color:var(--gray); font-size:12px;">Заказов: ${data.custom.cnt} | Ср. чек: ${data.custom.aov} ₽</span>
                 </div>`;
@@ -731,7 +754,7 @@ function fetchAdminStatsData() {
                     </div>
                 </div>
                 <div class="info-card" style="text-align:center; border: 1px solid var(--accent);">
-                    <span style="color:var(--gray); font-size:12px;">ВСЕГО ВЫРУЧКИ (${city})</span><br>
+                    <span style="color:var(--gray); font-size:12px;">ВСЕГО ВЫРУЧКИ</span><br>
                     <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
                     <span style="color:var(--gray); font-size:12px;">Выполнено заказов: ${data.total.cnt}</span>
                 </div>`;
@@ -767,7 +790,7 @@ function loadAdminOrders() {
                         <span style="color:${statusColor}; font-size:12px; font-weight:bold;">${statusText}</span>
                     </div>
                     <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${o.user_name} (ID: ${o.user_id})</p>
-                    <p style="margin:4px 0; font-size:13px;"><b>Город:</b> ${o.city} | <b>Тел:</b> ${o.phone}</p>
+                    <p style="margin:4px 0; font-size:13px;"><b>Тел:</b> ${o.phone}</p>
                     <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--accent); font-weight:bold;">${o.total}₽</span></p>
                     <hr style="border-color:var(--gray); margin:10px 0;">
                     <p style="margin:0; font-size:12px; color:var(--gray); line-height:1.6;">${o.items.join('<br>')}</p>
@@ -809,7 +832,6 @@ function loadAdminUsers() {
         });
 }
 
-/* --- КОНКУРСЫ В АДМИНКЕ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -835,7 +857,7 @@ function loadAdminGiveaways() {
                     </div>
                     <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${g.text}</p>
                     
-                    <div style="font-size:11px; color:var(--gray); background:#140a0a; padding:6px; border-radius:6px; margin-bottom:8px;">
+                    <div style="font-size:11px; color:var(--gray); background:#f5f0f0; padding:6px; border-radius:6px; margin-bottom:8px;">
                         Мест: <b>${g.winners_count}</b> | Заказ от: <b>${g.min_order} ₽</b><br>
                         Период заказов: <b>${dateRangeText}</b><br>
                         Итоги: <b>${g.end_date || 'Не указано'}</b>
@@ -918,3 +940,5 @@ function rollGiveaway(id) {
 
 const admBtn = document.getElementById('admin-btn');
 if (admBtn) { admBtn.addEventListener('click', () => loadAdminProducts()); }
+
+```
