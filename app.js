@@ -7,12 +7,16 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
+let userBonusBalance = 0;
 
 window.onload = () => {
     checkCity();
     const urlParams = new URLSearchParams(window.location.search);
     const urlUid = urlParams.get('uid');
     let urlName = urlParams.get('name') || "Гость";
+
+    // Считываем бонусы из параметров или ставим 0 по умолчанию
+    userBonusBalance = parseInt(urlParams.get('bonuses') || '0', 10);
 
     if (urlName.includes(' | ')) urlName = urlName.split(' | ')[1];
 
@@ -53,6 +57,14 @@ window.onload = () => {
     if (adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
+    }
+
+    // Слушаем изменение способа оплаты в чекауте для пересчета бонусов на лету
+    const paymentSelect = document.getElementById('co-payment');
+    if (paymentSelect) {
+        paymentSelect.addEventListener('change', () => {
+            updateCheckoutBonusesDisplay();
+        });
     }
 
     loadCart(); 
@@ -232,10 +244,8 @@ function openProductModal(id) {
 
 function selectProductFlavor(flavor, btnElement) {
     currentSelectedFlavor = flavor;
-    
     document.querySelectorAll('.flavor-pill').forEach(b => b.classList.remove('active'));
     if(btnElement) btnElement.classList.add('active');
-    
     if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }
 
@@ -307,20 +317,40 @@ function openCheckout() {
         tg.showAlert("Пожалуйста, выберите город в профиле!");
         return openCityModal();
     }
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const bonuses = parseInt(urlParams.get('bonuses') || '0', 10);
-    const bonusCountEl = document.getElementById('co-bonus-count');
-    if (bonusCountEl) bonusCountEl.innerText = bonuses + " ₽";
-    
-    const bonusGroup = document.getElementById('bonus-group');
-    if (bonusGroup) {
-        bonusGroup.style.display = (bonuses <= 0) ? 'none' : 'flex';
-    }
+
+    updateCheckoutBonusesDisplay();
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     const checkoutTab = document.getElementById('checkout-tab');
     if (checkoutTab) checkoutTab.classList.add('active');
+}
+
+function updateCheckoutBonusesDisplay() {
+    const paymentSelect = document.getElementById('co-payment');
+    const paymentMethod = paymentSelect ? paymentSelect.value : "Перевод (СБП)";
+    
+    const totalCartPrice = cart.reduce((s, i) => s + i.price, 0);
+    const maxAvailable = Math.min(userBonusBalance, totalCartPrice);
+    
+    let validBonuses = 0;
+    if (paymentMethod === "Наличные") {
+        validBonuses = Math.floor(maxAvailable / 50) * 50;
+    } else {
+        validBonuses = Math.floor(maxAvailable / 10) * 10;
+    }
+
+    const bonusCountEl = document.getElementById('co-bonus-count');
+    const bonusGroup = document.getElementById('bonus-group');
+    const bonusCheckbox = document.getElementById('co-bonuses');
+
+    // Если баланс 0 или сумма меньше шага кратности — скрываем блок бонусов полностью
+    if (userBonusBalance <= 0 || validBonuses <= 0) {
+        if (bonusGroup) bonusGroup.style.display = 'none';
+        if (bonusCheckbox) bonusCheckbox.checked = false;
+    } else {
+        if (bonusGroup) bonusGroup.style.display = 'flex';
+        if (bonusCountEl) bonusCountEl.innerText = validBonuses + " ₽";
+    }
 }
 
 function backToCart() {
@@ -388,6 +418,7 @@ function loadProfileData() {
     fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
+            userBonusBalance = parseInt(data.bonuses || 0, 10);
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
             const uSpent = document.getElementById('u-spent');
