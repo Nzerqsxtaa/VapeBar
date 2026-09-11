@@ -7,13 +7,16 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
-let availableBonuses = 0;
+let userBonusBalance = 0;
 
 window.onload = () => {
     checkCity();
     const urlParams = new URLSearchParams(window.location.search);
     const urlUid = urlParams.get('uid');
     let urlName = urlParams.get('name') || "Гость";
+
+    // Считываем бонусы из параметров или ставим 0 по умолчанию
+    userBonusBalance = parseInt(urlParams.get('bonuses') || '0', 10);
 
     if (urlName.includes(' | ')) urlName = urlName.split(' | ')[1];
 
@@ -49,11 +52,19 @@ window.onload = () => {
     }
 
     const adminIds = [7764501774, 5526616552, 8649568755, 7542257628];
-    const currentUserId = parseInt(urlUid) || user?.id;
+    const currentUserId = parseInt(urlUid, 10) || user?.id;
     
     if (adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
+    }
+
+    // Слушаем изменение способа оплаты в чекауте для пересчета бонусов на лету
+    const paymentSelect = document.getElementById('co-payment');
+    if (paymentSelect) {
+        paymentSelect.addEventListener('change', () => {
+            updateCheckoutBonusesDisplay();
+        });
     }
 
     loadCart(); 
@@ -79,8 +90,12 @@ function loadCatalog() {
 }
 
 function checkCity() {
-    if (!userCity) document.getElementById('city-modal').classList.remove('hidden');
-    else updateCityDisplay();
+    if (!userCity) {
+        const cityModal = document.getElementById('city-modal');
+        if (cityModal) cityModal.classList.remove('hidden');
+    } else {
+        updateCityDisplay();
+    }
 }
 
 function selectCity(city) {
@@ -89,12 +104,16 @@ function selectCity(city) {
     }
     userCity = city;
     localStorage.setItem('vapebar_city', city);
-    document.getElementById('city-modal').classList.add('hidden');
+    const cityModal = document.getElementById('city-modal');
+    if (cityModal) cityModal.classList.add('hidden');
     updateCityDisplay();
     loadCatalog();
 }
 
-function openCityModal() { document.getElementById('city-modal').classList.remove('hidden'); }
+function openCityModal() { 
+    const cityModal = document.getElementById('city-modal');
+    if (cityModal) cityModal.classList.remove('hidden'); 
+}
 
 function updateCityDisplay() {
     const pDisplay = document.getElementById('u-city-display');
@@ -113,19 +132,21 @@ function loadCart() {
 
 function clearCart() {
     cart = []; saveCart();
-    tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); 
+    updateCartUI();
 }
 
 function showTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(tabId + '-tab').classList.add('active');
-    if(btn) btn.classList.add('active');
+    const targetTab = document.getElementById(tabId + '-tab');
+    if (targetTab) targetTab.classList.add('active');
+    if (btn) btn.classList.add('active');
 }
 
 function filterCat(cat, btn) {
     document.querySelectorAll('.c-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     renderProducts(cat);
 }
 
@@ -223,28 +244,33 @@ function openProductModal(id) {
 
 function selectProductFlavor(flavor, btnElement) {
     currentSelectedFlavor = flavor;
-    
     document.querySelectorAll('.flavor-pill').forEach(b => b.classList.remove('active'));
     if(btnElement) btnElement.classList.add('active');
-    
     if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }
 
-function closeProductModal() { document.getElementById('product-modal').classList.add('hidden'); }
+function closeProductModal() { 
+    const pm = document.getElementById('product-modal');
+    if (pm) pm.classList.add('hidden'); 
+}
 
 function addExactProductToCart(product, flavor) {
     const currentCount = cart.filter(item => item.id === product.id).length;
     if (product.stock !== undefined && currentCount >= product.stock) {
-        tg.showAlert("Больше нет в наличии на складе! 😢"); return;
+        tg.showAlert("Больше нет в наличии на складе! 😢"); 
+        return;
     }
     const finalName = flavor ? `${product.name} (${flavor})` : product.name;
     cart.push({ id: product.id, name: finalName, price: product.price });
-    saveCart(); tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
+    saveCart(); 
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); 
+    updateCartUI();
 }
 
 function removeFromCart(index) {
     cart.splice(index, 1); saveCart();
-    tg.HapticFeedback.impactOccurred('light'); updateCartUI();
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); 
+    updateCartUI();
 }
 
 function updateCartUI() {
@@ -291,70 +317,46 @@ function openCheckout() {
         tg.showAlert("Пожалуйста, выберите город в профиле!");
         return openCityModal();
     }
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    availableBonuses = parseInt(urlParams.get('bonuses') || '0');
 
-    const bonusGroup = document.getElementById('bonus-group');
-    const bonusInput = document.getElementById('co-bonus-input');
-    const bonusAvailableEl = document.getElementById('co-bonus-available');
-
-    if(availableBonuses <= 0) {
-        if(bonusGroup) bonusGroup.style.display = 'none';
-    } else {
-        if(bonusGroup) bonusGroup.style.display = '';
-        if(bonusAvailableEl) bonusAvailableEl.innerText = availableBonuses;
-        if(bonusInput) {
-            bonusInput.max = availableBonuses;
-            bonusInput.value = 0;
-        }
-        updateBonusPreview();
-    }
+    updateCheckoutBonusesDisplay();
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById('checkout-tab').classList.add('active');
+    const checkoutTab = document.getElementById('checkout-tab');
+    if (checkoutTab) checkoutTab.classList.add('active');
 }
 
-// Шаг округления зависит от способа оплаты (см. правило на сервере)
-function getBonusStep() {
-    const payment = document.getElementById('co-payment')?.value;
-    return payment === 'Наличные' ? 50 : 10;
-}
+function updateCheckoutBonusesDisplay() {
+    const paymentSelect = document.getElementById('co-payment');
+    const paymentMethod = paymentSelect ? paymentSelect.value : "Перевод (СБП)";
+    
+    const totalCartPrice = cart.reduce((s, i) => s + i.price, 0);
+    const maxAvailable = Math.min(userBonusBalance, totalCartPrice);
+    
+    let validBonuses = 0;
+    if (paymentMethod === "Наличные") {
+        validBonuses = Math.floor(maxAvailable / 50) * 50;
+    } else {
+        validBonuses = Math.floor(maxAvailable / 10) * 10;
+    }
 
-// Сколько бонусов реально спишется с учётом лимита корзины, баланса и кратности округления
-function calcAppliedBonuses(requested) {
-    const cartTotal = cart.reduce((s,i)=>s+i.price, 0);
-    const step = getBonusStep();
-    let capped = Math.min(requested, availableBonuses, cartTotal);
-    if(capped < 0) capped = 0;
-    return Math.floor(capped / step) * step;
-}
+    const bonusCountEl = document.getElementById('co-bonus-count');
+    const bonusGroup = document.getElementById('bonus-group');
+    const bonusCheckbox = document.getElementById('co-bonuses');
 
-function updateBonusPreview() {
-    const bonusInput = document.getElementById('co-bonus-input');
-    if(!bonusInput) return;
-
-    let requested = parseInt(bonusInput.value) || 0;
-    if(requested < 0) requested = 0;
-    if(requested > availableBonuses) requested = availableBonuses;
-    bonusInput.value = requested;
-
-    const applied = calcAppliedBonuses(requested);
-    const appliedEl = document.getElementById('co-bonus-applied');
-    if(appliedEl) appliedEl.innerText = applied + ' ₽';
-}
-
-function setMaxBonuses() {
-    const bonusInput = document.getElementById('co-bonus-input');
-    if(!bonusInput) return;
-    const cartTotal = cart.reduce((s,i)=>s+i.price, 0);
-    bonusInput.value = Math.min(availableBonuses, cartTotal);
-    updateBonusPreview();
+    // Если баланс 0 или сумма меньше шага кратности — скрываем блок бонусов полностью
+    if (userBonusBalance <= 0 || validBonuses <= 0) {
+        if (bonusGroup) bonusGroup.style.display = 'none';
+        if (bonusCheckbox) bonusCheckbox.checked = false;
+    } else {
+        if (bonusGroup) bonusGroup.style.display = 'flex';
+        if (bonusCountEl) bonusCountEl.innerText = validBonuses + " ₽";
+    }
 }
 
 function backToCart() {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById('cart-tab').classList.add('active');
+    const cartTab = document.getElementById('cart-tab');
+    if (cartTab) cartTab.classList.add('active');
 }
 
 function submitCheckout() {
@@ -364,8 +366,8 @@ function submitCheckout() {
     const payment = document.getElementById('co-payment').value;
     const age = document.getElementById('co-age').checked;
     
-    const bonusInput = document.getElementById('co-bonus-input');
-    const bonusesToUse = bonusInput ? (parseInt(bonusInput.value) || 0) : 0;
+    const bonusesCheckbox = document.getElementById('co-bonuses');
+    const useBonuses = bonusesCheckbox ? bonusesCheckbox.checked : false;
     
     const total = cart.reduce((s,i)=>s+i.price, 0);
 
@@ -375,12 +377,12 @@ function submitCheckout() {
     if(!userCity) return tg.showAlert("Сначала выберите город!");
 
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id);
+    const userId = parseInt(urlParams.get('uid'), 10) || (tg.initDataUnsafe?.user?.id);
 
     const orderData = {
         userId: userId, items: cart, total: total, deliveryType: type,
         city: userCity, address: "Точка в городе " + userCity, dateTime: dateTime,
-        payment: payment, phone: phone, bonusesToUse: bonusesToUse
+        payment: payment, phone: phone, useBonuses: useBonuses
     };
 
     const btn = document.querySelector('#checkout-tab .order-btn');
@@ -395,7 +397,8 @@ function submitCheckout() {
     })
     .then(result => {
         tg.showAlert("Заказ #" + result.order_id + " успешно оформлен!");
-        clearCart(); tg.close();
+        clearCart(); 
+        tg.close();
     })
     .catch(error => {
         if(btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerText = 'Подтвердить заказ'; }
@@ -405,7 +408,7 @@ function submitCheckout() {
 
 function getMyId() {
     const urlParams = new URLSearchParams(window.location.search);
-    return parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id) || 0;
+    return parseInt(urlParams.get('uid'), 10) || (tg.initDataUnsafe?.user?.id) || 0;
 }
 
 function loadProfileData() {
@@ -415,6 +418,7 @@ function loadProfileData() {
     fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
+            userBonusBalance = parseInt(data.bonuses || 0, 10);
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
             const uSpent = document.getElementById('u-spent');
@@ -438,9 +442,12 @@ function loadProfileData() {
 
 function copyRefLink() {
     const linkInput = document.getElementById('u-ref-link');
-    linkInput.select(); document.execCommand("copy");
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-    tg.showAlert("✅ Реферальная ссылка скопирована!");
+    if (linkInput) {
+        linkInput.select(); 
+        document.execCommand("copy");
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        tg.showAlert("✅ Реферальная ссылка скопирована!");
+    }
 }
 
 function installApp() {
@@ -451,10 +458,11 @@ function installApp() {
     }
 }
 
-/* --- КОНКУРСЫ ДЛЯ КЛИЕНТА --- */
 function openClientGiveaways() {
-    document.getElementById('client-gw-modal').classList.remove('hidden');
+    const gwModal = document.getElementById('client-gw-modal');
+    if (gwModal) gwModal.classList.remove('hidden');
     const list = document.getElementById('client-gw-list');
+    if (!list) return;
     list.innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка конкурсов...</p>';
     
     fetch(`/api/giveaways?user_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -545,13 +553,13 @@ function joinGiveaway(gw_id) {
     });
 }
 
-/* --- АДМИНКА --- */
 function setAdminTabActive(btnId) {
     ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.remove('active');
     });
-    document.getElementById(btnId).classList.add('active');
+    const targetBtn = document.getElementById(btnId);
+    if (targetBtn) targetBtn.classList.add('active');
     
     const statsFilters = document.getElementById('admin-stats-filters');
     if (statsFilters) {
@@ -562,13 +570,18 @@ function setAdminTabActive(btnId) {
         }
     }
 
-    document.getElementById('admin-workspace').innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка...</p>';
+    const ws = document.getElementById('admin-workspace');
+    if (ws) ws.innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка...</p>';
 }
 
-function closeAdmModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeAdmModal(id) { 
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden'); 
+}
 
 function openAddModal() {
-    document.getElementById('adm-add-modal').classList.remove('hidden');
+    const el = document.getElementById('adm-add-modal');
+    if (el) el.classList.remove('hidden');
 }
 
 let adminProducts = [];
@@ -600,7 +613,8 @@ function loadAdminProducts() {
                     </div>
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>Склад пуст</p>';
+            const ws = document.getElementById('admin-workspace');
+            if (ws) ws.innerHTML = html || '<p>Склад пуст</p>';
         })
         .catch(err => tg.showAlert("Ошибка загрузки склада: " + err.message));
 }
@@ -621,7 +635,7 @@ async function submitNewProduct() {
     const name = document.getElementById('add-name').value.trim();
     const category = document.getElementById('add-cat').value;
     const price = parseFloat(document.getElementById('add-price').value);
-    const stock = parseInt(document.getElementById('add-stock').value) || 0;
+    const stock = parseInt(document.getElementById('add-stock').value, 10) || 0;
     const city = document.getElementById('add-city').value;
     const imgInput = document.getElementById('add-img');
     
@@ -686,7 +700,8 @@ function openFlavorsModal(id) {
     const p = adminProducts.find(x => x.id === id);
     currentEditProdId = id; currentFlavors = Object.assign({}, p.flavors || {});
     document.getElementById('flavor-prod-name').innerText = `Вкусы: ${p.name}`;
-    renderFlavorsAdmin(); document.getElementById('adm-flavors-modal').classList.remove('hidden');
+    renderFlavorsAdmin(); 
+    document.getElementById('adm-flavors-modal').classList.remove('hidden');
 }
 
 function renderFlavorsAdmin() {
@@ -701,12 +716,13 @@ function renderFlavorsAdmin() {
             </div>
         </div>`;
     }
-    document.getElementById('flavor-list-admin').innerHTML = html || '<p style="color:var(--gray); font-size:13px; text-align:center;">Вкусов пока нет</p>';
+    const flList = document.getElementById('flavor-list-admin');
+    if (flList) flList.innerHTML = html || '<p style="color:var(--gray); font-size:13px; text-align:center;">Вкусов пока нет</p>';
 }
 
 function addFlavorRow() {
     const name = document.getElementById('new-flavor-name').value.trim();
-    const stock = parseInt(document.getElementById('new-flavor-stock').value);
+    const stock = parseInt(document.getElementById('new-flavor-stock').value, 10);
     if(!name || isNaN(stock)) return tg.showAlert("Введите название и количество!");
     currentFlavors[name] = stock;
     document.getElementById('new-flavor-name').value = ''; document.getElementById('new-flavor-stock').value = '';
@@ -729,9 +745,9 @@ function applyAdminStatsFilter() {
 }
 
 function fetchAdminStatsData() {
-    const city = document.getElementById('stat-city').value;
-    const startInput = document.getElementById('stat-start').value;
-    const endInput = document.getElementById('stat-end').value;
+    const city = document.getElementById('stat-city')?.value || "Все";
+    const startInput = document.getElementById('stat-start')?.value;
+    const endInput = document.getElementById('stat-end')?.value;
     
     let url = `/api/admin/stats?admin_id=${getMyId()}&city=${encodeURIComponent(city)}`;
     
@@ -787,7 +803,8 @@ function fetchAdminStatsData() {
                     <span style="color:var(--gray); font-size:12px;">Выполнено заказов: ${data.total.cnt}</span>
                 </div>`;
             }
-            document.getElementById('admin-workspace').innerHTML = html;
+            const ws = document.getElementById('admin-workspace');
+            if (ws) ws.innerHTML = html;
         })
         .catch(err => tg.showAlert("❌ Ошибка загрузки статистики: " + err.message));
 }
@@ -825,7 +842,8 @@ function loadAdminOrders() {
                     ${btns}
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>Заказов пока нет</p>';
+            const ws = document.getElementById('admin-workspace');
+            if (ws) ws.innerHTML = html || '<p>Заказов пока нет</p>';
         })
         .catch(err => tg.showAlert("❌ Ошибка загрузки заказов: " + err.message));
 }
@@ -856,11 +874,11 @@ function loadAdminUsers() {
                     </div>
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>База пуста</p>';
+            const ws = document.getElementById('admin-workspace');
+            if (ws) ws.innerHTML = html || '<p>База пуста</p>';
         });
 }
 
-/* --- КОНКУРСЫ В АДМИНКЕ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -896,14 +914,15 @@ function loadAdminGiveaways() {
                     ${rollBtn}
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>Конкурсов пока нет</p>';
+            const ws = document.getElementById('admin-workspace');
+            if (ws) ws.innerHTML = html || '<p>Конкурсов пока нет</p>';
         })
         .catch(err => tg.showAlert("Ошибка загрузки: " + err.message));
 }
 
 function submitNewGiveaway() {
     const text = document.getElementById('gw-text').value.trim();
-    const winnersCount = parseInt(document.getElementById('gw-winners').value) || 1;
+    const winnersCount = parseInt(document.getElementById('gw-winners').value, 10) || 1;
     const minOrder = parseFloat(document.getElementById('gw-min-order').value) || 0;
     const endDate = document.getElementById('gw-end-date').value.trim() || 'Не указана';
     
