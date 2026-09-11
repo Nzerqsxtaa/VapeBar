@@ -7,6 +7,7 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
+let userBonuses = 0; // Сохраняем актуальный баланс напрямую из профиля
 
 window.onload = () => {
     checkCity();
@@ -291,24 +292,61 @@ function openCheckout() {
         return openCityModal();
     }
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const bonuses = parseInt(urlParams.get('bonuses') || '0');
+    // БЕРЕМ БОНУСЫ ИЗ ГЛОБАЛЬНОЙ ПЕРЕМЕННОЙ ПРОФИЛЯ
+    const bonuses = userBonuses;
     const total = cart.reduce((s,i)=>s+i.price, 0);
+    const maxSpend = Math.min(bonuses, total);
     
     const bonusCountDisplay = document.getElementById('co-bonus-count');
     if (bonusCountDisplay) bonusCountDisplay.innerText = bonuses + " ₽";
     
-    const bonusGroup = document.getElementById('bonus-group');
-    if (bonusGroup) {
+    const bonusCheckbox = document.getElementById('co-bonuses');
+    if (bonusCheckbox) {
+        const parent = bonusCheckbox.parentElement;
         if (bonuses <= 0) {
-            bonusGroup.style.display = 'none';
+            parent.style.display = 'none'; // Скрываем, если бонусов 0
         } else {
-            bonusGroup.style.display = 'block';
-            const bonusInput = document.getElementById('co-bonus-input');
-            if (bonusInput) {
-                bonusInput.max = Math.min(bonuses, total);
-                bonusInput.value = ''; // Пользователь сам вписывает, сколько списать
+            parent.style.display = 'block'; 
+            bonusCheckbox.checked = false;
+            
+            // Динамически создаем инпут для ввода количества бонусов, если его еще нет
+            let dynamicInput = document.getElementById('co-bonus-input');
+            if (!dynamicInput) {
+                dynamicInput = document.createElement('input');
+                dynamicInput.type = 'number';
+                dynamicInput.id = 'co-bonus-input';
+                dynamicInput.style.width = '80px';
+                dynamicInput.style.marginLeft = '10px';
+                dynamicInput.style.background = '#2a1a1a';
+                dynamicInput.style.color = 'var(--accent)';
+                dynamicInput.style.border = '1px solid var(--accent)';
+                dynamicInput.style.borderRadius = '6px';
+                dynamicInput.style.padding = '4px 8px';
+                dynamicInput.style.fontSize = '14px';
+                dynamicInput.placeholder = 'Сумма';
+                
+                parent.appendChild(dynamicInput);
+                
+                // Показываем/скрываем инпут по клику на галочку
+                bonusCheckbox.addEventListener('change', function() {
+                    dynamicInput.style.display = this.checked ? 'inline-block' : 'none';
+                    if (this.checked) {
+                        dynamicInput.value = maxSpend; // По умолчанию максимум
+                        dynamicInput.focus();
+                    } else {
+                        dynamicInput.value = '';
+                    }
+                });
+                
+                dynamicInput.addEventListener('input', function() {
+                    let val = parseInt(this.value) || 0;
+                    if (val > maxSpend) this.value = maxSpend;
+                    if (val < 0) this.value = 0;
+                });
             }
+            // Сбрасываем видимость при каждом новом открытии корзины
+            dynamicInput.style.display = 'none';
+            dynamicInput.max = maxSpend;
         }
     }
 
@@ -329,21 +367,17 @@ function submitCheckout() {
     const age = document.getElementById('co-age').checked;
     
     const total = cart.reduce((s,i)=>s+i.price, 0);
-    const urlParams = new URLSearchParams(window.location.search);
-    const availableBonuses = parseInt(urlParams.get('bonuses') || '0');
+    const availableBonuses = userBonuses;
 
-    // Логика выбора количества бонусов для списания
     let useBonuses = 0;
-    const bonusInput = document.getElementById('co-bonus-input'); 
-    const bonusCheckbox = document.getElementById('co-bonuses'); // Поддержка старого чекбокса
+    const bonusCheckbox = document.getElementById('co-bonuses');
+    const dynamicInput = document.getElementById('co-bonus-input'); 
 
-    if (bonusInput) {
-        useBonuses = parseInt(bonusInput.value) || 0;
-    } else if (bonusCheckbox) {
-        if (bonusCheckbox.type === 'checkbox') {
-            useBonuses = bonusCheckbox.checked ? availableBonuses : 0;
+    if (bonusCheckbox && bonusCheckbox.checked) {
+        if (dynamicInput && dynamicInput.value) {
+            useBonuses = parseInt(dynamicInput.value) || 0;
         } else {
-            useBonuses = parseInt(bonusCheckbox.value) || 0;
+            useBonuses = availableBonuses; // Защитный фоллбэк
         }
     }
 
@@ -356,6 +390,7 @@ function submitCheckout() {
     if(phone.length < 7) return tg.showAlert("Пожалуйста, введите корректный номер телефона");
     if(!userCity) return tg.showAlert("Сначала выберите город!");
 
+    const urlParams = new URLSearchParams(window.location.search);
     const userId = parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id);
 
     const orderData = {
@@ -396,6 +431,9 @@ function loadProfileData() {
     fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
+            // СОХРАНЯЕМ РЕАЛЬНЫЕ БОНУСЫ ИЗ БД
+            userBonuses = data.bonuses || 0; 
+            
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
             const uSpent = document.getElementById('u-spent');
@@ -406,7 +444,7 @@ function loadProfileData() {
                 else { nxtLvl.innerText = `🌟 Максимальный уровень!`; nxtLvl.style.color = '#ffb84d'; }
             }
             const uBonuses = document.getElementById('u-bonuses');
-            if(uBonuses) uBonuses.innerText = `${data.bonuses} ₽`;
+            if(uBonuses) uBonuses.innerText = `${userBonuses} ₽`;
             const uCb = document.getElementById('u-cb');
             if(uCb) uCb.innerText = `Кэшбек: ${data.cashback_pct}%`;
             const uRefs = document.getElementById('u-refs');
