@@ -1,10 +1,3 @@
-Причина в том, что в `openCheckout()` переменная баланса затиралась или бралась из URL до того, как пришел ответ от сервера, а функция `updateBonusOptions()` скрывала блок `bonus-group`, если баланс равен 0. Плюс при изменении чекбокса не пересчитывался итоговый чек.
-
-Замени в `app.js` функции `openCheckout`, `updateBonusOptions` и `submitCheckout` (или весь файл целиком) на этот исправленный вариант.
-
-В файле `app.js`:
-
-```javascript
 let tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
@@ -14,16 +7,12 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
-let userBonusBalance = 0;
 
 window.onload = () => {
     checkCity();
     const urlParams = new URLSearchParams(window.location.search);
     const urlUid = urlParams.get('uid');
     let urlName = urlParams.get('name') || "Гость";
-
-    // Инициализируем баланс из URL параметров сразу
-    userBonusBalance = parseInt(urlParams.get('bonuses') || '0', 10);
 
     if (urlName.includes(' | ')) urlName = urlName.split(' | ')[1];
 
@@ -59,16 +48,11 @@ window.onload = () => {
     }
 
     const adminIds = [7764501774, 5526616552, 8649568755, 7542257628];
-    const currentUserId = parseInt(urlUid, 10) || user?.id;
+    const currentUserId = parseInt(urlUid) || user?.id;
     
     if (adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
-    }
-
-    const paymentSelect = document.getElementById('co-payment');
-    if (paymentSelect) {
-        paymentSelect.addEventListener('change', updateBonusOptions);
     }
 
     loadCart(); 
@@ -128,8 +112,7 @@ function loadCart() {
 
 function clearCart() {
     cart = []; saveCart();
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); 
-    updateCartUI();
+    tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
 }
 
 function showTab(tabId, btn) {
@@ -255,15 +238,12 @@ function addExactProductToCart(product, flavor) {
     }
     const finalName = flavor ? `${product.name} (${flavor})` : product.name;
     cart.push({ id: product.id, name: finalName, price: product.price });
-    saveCart(); 
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); 
-    updateCartUI();
+    saveCart(); tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
 }
 
 function removeFromCart(index) {
     cart.splice(index, 1); saveCart();
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); 
-    updateCartUI();
+    tg.HapticFeedback.impactOccurred('light'); updateCartUI();
 }
 
 function updateCartUI() {
@@ -311,58 +291,14 @@ function openCheckout() {
         return openCityModal();
     }
     
-    // Если баланс не загрузился из профиля, пробуем взять из URL
-    if (!userBonusBalance) {
-        const urlParams = new URLSearchParams(window.location.search);
-        userBonusBalance = parseInt(urlParams.get('bonuses') || '0', 10);
-    }
-
-    updateBonusOptions();
+    const urlParams = new URLSearchParams(window.location.search);
+    const bonuses = parseInt(urlParams.get('bonuses') || '0');
+    document.getElementById('co-bonus-count').innerText = bonuses + " ₽";
+    
+    if(bonuses <= 0) document.getElementById('bonus-group').style.display = 'none';
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
-}
-
-function updateBonusOptions() {
-    const payment = document.getElementById('co-payment')?.value || "Перевод (СБП)";
-    const totalCart = cart.reduce((s, i) => s + i.price, 0);
-    const maxAvailable = Math.min(userBonusBalance, totalCart);
-    
-    let applicableBonuses = 0;
-    
-    if (payment === "Наличные") {
-        applicableBonuses = Math.floor(maxAvailable / 50) * 50;
-    } else {
-        applicableBonuses = Math.floor(maxAvailable / 10) * 10;
-    }
-
-    const bonusGroup = document.getElementById('bonus-group');
-    const bonusCountEl = document.getElementById('co-bonus-count');
-    const bonusCheckbox = document.getElementById('co-bonuses');
-
-    if (!bonusGroup) return;
-
-    // Показываем блок, если у пользователя в принципе есть бонусы
-    if (userBonusBalance <= 0) {
-        bonusGroup.style.display = 'none';
-        if (bonusCheckbox) bonusCheckbox.checked = false;
-    } else {
-        bonusGroup.style.display = 'flex';
-        if (bonusCountEl) {
-            bonusCountEl.innerText = applicableBonuses;
-        }
-        // Если кратно списать нечего (например, 30 бонусов при наличных)
-        if (applicableBonuses === 0) {
-            if (bonusCheckbox) {
-                bonusCheckbox.checked = false;
-                bonusCheckbox.disabled = true;
-            }
-        } else {
-            if (bonusCheckbox) {
-                bonusCheckbox.disabled = false;
-            }
-        }
-    }
 }
 
 function backToCart() {
@@ -388,7 +324,7 @@ function submitCheckout() {
     if(!userCity) return tg.showAlert("Сначала выберите город!");
 
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = parseInt(urlParams.get('uid'), 10) || (tg.initDataUnsafe?.user?.id);
+    const userId = parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id);
 
     const orderData = {
         userId: userId, items: cart, total: total, deliveryType: type,
@@ -418,7 +354,7 @@ function submitCheckout() {
 
 function getMyId() {
     const urlParams = new URLSearchParams(window.location.search);
-    return parseInt(urlParams.get('uid'), 10) || (tg.initDataUnsafe?.user?.id) || 0;
+    return parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id) || 0;
 }
 
 function loadProfileData() {
@@ -428,12 +364,11 @@ function loadProfileData() {
     fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
-            userBonusBalance = parseInt(data.bonuses || 0, 10);
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
             const uSpent = document.getElementById('u-spent');
             if(uSpent) uSpent.innerText = `${data.total_spent} ₽`;
-            const nxtLvl = document.getElementById('nxt-lvl');
+            const nxtLvl = document.getElementById('u-next-lvl');
             if(nxtLvl) {
                 if(data.to_next > 0) { nxtLvl.innerText = `До след. уровня: ${data.to_next} ₽`; nxtLvl.style.color = 'var(--gray)'; } 
                 else { nxtLvl.innerText = `🌟 Максимальный уровень!`; nxtLvl.style.color = '#ffb84d'; }
@@ -465,6 +400,7 @@ function installApp() {
     }
 }
 
+/* --- КОНКУРСЫ ДЛЯ КЛИЕНТА --- */
 function openClientGiveaways() {
     document.getElementById('client-gw-modal').classList.remove('hidden');
     const list = document.getElementById('client-gw-list');
@@ -558,6 +494,7 @@ function joinGiveaway(gw_id) {
     });
 }
 
+/* --- АДМИНКА --- */
 function setAdminTabActive(btnId) {
     ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw'].forEach(id => {
         const el = document.getElementById(id);
@@ -741,9 +678,9 @@ function applyAdminStatsFilter() {
 }
 
 function fetchAdminStatsData() {
-    const city = document.getElementById('stat-city')?.value || "Все";
-    const startInput = document.getElementById('stat-start')?.value;
-    const endInput = document.getElementById('stat-end')?.value;
+    const city = document.getElementById('stat-city').value;
+    const startInput = document.getElementById('stat-start').value;
+    const endInput = document.getElementById('stat-end').value;
     
     let url = `/api/admin/stats?admin_id=${getMyId()}&city=${encodeURIComponent(city)}`;
     
@@ -872,6 +809,7 @@ function loadAdminUsers() {
         });
 }
 
+/* --- КОНКУРСЫ В АДМИНКЕ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
@@ -914,7 +852,7 @@ function loadAdminGiveaways() {
 
 function submitNewGiveaway() {
     const text = document.getElementById('gw-text').value.trim();
-    const winnersCount = parseInt(document.getElementById('gw-winners').value, 10) || 1;
+    const winnersCount = parseInt(document.getElementById('gw-winners').value) || 1;
     const minOrder = parseFloat(document.getElementById('gw-min-order').value) || 0;
     const endDate = document.getElementById('gw-end-date').value.trim() || 'Не указана';
     
@@ -980,5 +918,3 @@ function rollGiveaway(id) {
 
 const admBtn = document.getElementById('admin-btn');
 if (admBtn) { admBtn.addEventListener('click', () => loadAdminProducts()); }
-
-```
