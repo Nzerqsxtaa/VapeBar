@@ -7,6 +7,7 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
+let userBonusBalance = 0;
 
 window.onload = () => {
     checkCity();
@@ -53,6 +54,11 @@ window.onload = () => {
     if (adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
+    }
+
+    const paymentSelect = document.getElementById('co-payment');
+    if (paymentSelect) {
+        paymentSelect.addEventListener('change', updateBonusOptions);
     }
 
     loadCart(); 
@@ -112,7 +118,8 @@ function loadCart() {
 
 function clearCart() {
     cart = []; saveCart();
-    tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); 
+    updateCartUI();
 }
 
 function showTab(tabId, btn) {
@@ -238,12 +245,15 @@ function addExactProductToCart(product, flavor) {
     }
     const finalName = flavor ? `${product.name} (${flavor})` : product.name;
     cart.push({ id: product.id, name: finalName, price: product.price });
-    saveCart(); tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
+    saveCart(); 
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); 
+    updateCartUI();
 }
 
 function removeFromCart(index) {
     cart.splice(index, 1); saveCart();
-    tg.HapticFeedback.impactOccurred('light'); updateCartUI();
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); 
+    updateCartUI();
 }
 
 function updateCartUI() {
@@ -292,13 +302,45 @@ function openCheckout() {
     }
     
     const urlParams = new URLSearchParams(window.location.search);
-    const bonuses = parseInt(urlParams.get('bonuses') || '0');
-    document.getElementById('co-bonus-count').innerText = bonuses + " ₽";
-    
-    if(bonuses <= 0) document.getElementById('bonus-group').style.display = 'none';
+    userBonusBalance = parseInt(urlParams.get('bonuses') || '0');
+
+    updateBonusOptions();
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
+}
+
+function updateBonusOptions() {
+    const payment = document.getElementById('co-payment')?.value || "Перевод (СБП)";
+    const totalCart = cart.reduce((s, i) => s + i.price, 0);
+    const maxAvailable = Math.min(userBonusBalance, totalCart);
+    
+    let applicableBonuses = 0;
+    let step = 10;
+    
+    if (payment === "Наличные") {
+        step = 50;
+        applicableBonuses = Math.floor(maxAvailable / 50) * 50;
+    } else {
+        step = 10;
+        applicableBonuses = Math.floor(maxAvailable / 10) * 10;
+    }
+
+    const bonusGroup = document.getElementById('bonus-group');
+    const bonusCountEl = document.getElementById('co-bonus-count');
+    const bonusCheckbox = document.getElementById('co-bonuses');
+
+    if (!bonusGroup) return;
+
+    if (userBonusBalance <= 0 || applicableBonuses <= 0) {
+        if (bonusCheckbox) bonusCheckbox.checked = false;
+        bonusGroup.style.display = 'none';
+    } else {
+        bonusGroup.style.display = 'flex';
+        if (bonusCountEl) {
+            bonusCountEl.innerText = applicableBonuses;
+        }
+    }
 }
 
 function backToCart() {
@@ -364,6 +406,7 @@ function loadProfileData() {
     fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
+            userBonusBalance = data.bonuses || 0;
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
             const uSpent = document.getElementById('u-spent');
@@ -400,7 +443,6 @@ function installApp() {
     }
 }
 
-/* --- КОНКУРСЫ ДЛЯ КЛИЕНТА --- */
 function openClientGiveaways() {
     document.getElementById('client-gw-modal').classList.remove('hidden');
     const list = document.getElementById('client-gw-list');
@@ -494,7 +536,6 @@ function joinGiveaway(gw_id) {
     });
 }
 
-/* --- АДМИНКА --- */
 function setAdminTabActive(btnId) {
     ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw'].forEach(id => {
         const el = document.getElementById(id);
@@ -678,9 +719,9 @@ function applyAdminStatsFilter() {
 }
 
 function fetchAdminStatsData() {
-    const city = document.getElementById('stat-city').value;
-    const startInput = document.getElementById('stat-start').value;
-    const endInput = document.getElementById('stat-end').value;
+    const city = document.getElementById('stat-city')?.value || "Все";
+    const startInput = document.getElementById('stat-start')?.value;
+    const endInput = document.getElementById('stat-end')?.value;
     
     let url = `/api/admin/stats?admin_id=${getMyId()}&city=${encodeURIComponent(city)}`;
     
@@ -809,7 +850,6 @@ function loadAdminUsers() {
         });
 }
 
-/* --- КОНКУРСЫ В АДМИНКЕ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
