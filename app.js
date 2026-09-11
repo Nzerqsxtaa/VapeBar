@@ -7,7 +7,7 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userCity = localStorage.getItem('vapebar_city');
-let userBonuses = 0; // Сохраняем актуальный баланс напрямую из профиля
+let userBonuses = 0; 
 
 window.onload = () => {
     checkCity();
@@ -292,29 +292,35 @@ function openCheckout() {
         return openCityModal();
     }
     
-    // БЕРЕМ БОНУСЫ ИЗ ГЛОБАЛЬНОЙ ПЕРЕМЕННОЙ ПРОФИЛЯ
     const bonuses = userBonuses;
     const total = cart.reduce((s,i)=>s+i.price, 0);
-    const maxSpend = Math.min(bonuses, total);
+    const minStep = 10; // Минимальная сумма и шаг списания
     
-    const bonusCountDisplay = document.getElementById('co-bonus-count');
-    if (bonusCountDisplay) bonusCountDisplay.innerText = bonuses + " ₽";
+    // Считаем максимально возможную сумму списания, кратную 10
+    const maxSpend = Math.min(bonuses, total);
+    const maxSpendMultiple = Math.floor(maxSpend / minStep) * minStep;
     
     const bonusCheckbox = document.getElementById('co-bonuses');
     if (bonusCheckbox) {
         const parent = bonusCheckbox.parentElement;
-        if (bonuses <= 0) {
-            parent.style.display = 'none'; // Скрываем, если бонусов 0
+        
+        // Если кратная сумма равна 0 (т.е. баллов меньше 10), вообще скрываем блок списания
+        if (maxSpendMultiple <= 0) {
+            parent.style.display = 'none';
         } else {
             parent.style.display = 'block'; 
             bonusCheckbox.checked = false;
             
-            // Динамически создаем инпут для ввода количества бонусов, если его еще нет
+            const bonusCountDisplay = document.getElementById('co-bonus-count');
+            if (bonusCountDisplay) bonusCountDisplay.innerText = maxSpendMultiple + " ₽";
+            
             let dynamicInput = document.getElementById('co-bonus-input');
             if (!dynamicInput) {
                 dynamicInput = document.createElement('input');
                 dynamicInput.type = 'number';
                 dynamicInput.id = 'co-bonus-input';
+                dynamicInput.step = minStep;
+                dynamicInput.min = minStep;
                 dynamicInput.style.width = '80px';
                 dynamicInput.style.marginLeft = '10px';
                 dynamicInput.style.background = '#2a1a1a';
@@ -327,26 +333,26 @@ function openCheckout() {
                 
                 parent.appendChild(dynamicInput);
                 
-                // Показываем/скрываем инпут по клику на галочку
                 bonusCheckbox.addEventListener('change', function() {
                     dynamicInput.style.display = this.checked ? 'inline-block' : 'none';
                     if (this.checked) {
-                        dynamicInput.value = maxSpend; // По умолчанию максимум
+                        dynamicInput.value = maxSpendMultiple; 
                         dynamicInput.focus();
                     } else {
                         dynamicInput.value = '';
                     }
                 });
                 
-                dynamicInput.addEventListener('input', function() {
+                dynamicInput.addEventListener('change', function() {
                     let val = parseInt(this.value) || 0;
-                    if (val > maxSpend) this.value = maxSpend;
-                    if (val < 0) this.value = 0;
+                    val = Math.floor(val / minStep) * minStep; // Принудительная кратность 10
+                    if (val > maxSpendMultiple) val = maxSpendMultiple;
+                    if (val < minStep) val = minStep;
+                    this.value = val;
                 });
             }
-            // Сбрасываем видимость при каждом новом открытии корзины
             dynamicInput.style.display = 'none';
-            dynamicInput.max = maxSpend;
+            dynamicInput.max = maxSpendMultiple;
         }
     }
 
@@ -367,7 +373,7 @@ function submitCheckout() {
     const age = document.getElementById('co-age').checked;
     
     const total = cart.reduce((s,i)=>s+i.price, 0);
-    const availableBonuses = userBonuses;
+    const minStep = 10;
 
     let useBonuses = 0;
     const bonusCheckbox = document.getElementById('co-bonuses');
@@ -377,12 +383,14 @@ function submitCheckout() {
         if (dynamicInput && dynamicInput.value) {
             useBonuses = parseInt(dynamicInput.value) || 0;
         } else {
-            useBonuses = availableBonuses; // Защитный фоллбэк
+            useBonuses = Math.min(userBonuses, total); 
         }
+        // Финальная проверка на кратность перед отправкой
+        useBonuses = Math.floor(useBonuses / minStep) * minStep;
     }
 
-    if (useBonuses > availableBonuses) useBonuses = availableBonuses;
-    if (useBonuses > total) useBonuses = total;
+    if (useBonuses > userBonuses) useBonuses = Math.floor(userBonuses / minStep) * minStep;
+    if (useBonuses > total) useBonuses = Math.floor(total / minStep) * minStep;
     if (useBonuses < 0) useBonuses = 0;
 
     if(!age) return tg.showAlert("Для оформления заказа необходимо подтвердить возраст (18+)");
@@ -431,7 +439,6 @@ function loadProfileData() {
     fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(res => res.json())
         .then(data => {
-            // СОХРАНЯЕМ РЕАЛЬНЫЕ БОНУСЫ ИЗ БД
             userBonuses = data.bonuses || 0; 
             
             const uVip = document.getElementById('u-vip');
