@@ -29,23 +29,63 @@ body {
     padding: 0 15px 90px 15px;
 }
 
-/* --- ШАПКА --- */
+/* --- ШАПКА (ОБНОВЛЕННЫЙ ДИЗАЙН) --- */
 .header { 
     text-align: center; 
-    padding: 20px 0 10px 0; 
+    padding: 20px 0 15px 0; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
-.header h1 { 
+.main-logo { 
     font-size: 32px; 
     margin: 0; 
     font-weight: 900; 
     font-style: italic;
     text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
-.header span { 
+.main-logo .word1 { color: #ffffff; }
+.main-logo .word2 { 
     color: var(--accent); 
     text-shadow: 0 0 15px rgba(230, 0, 0, 0.5); 
+    margin-left: 6px;
+}
+.main-logo .version {
+    color: #ffffff;
+    font-size: 14px;
+    margin-left: 4px;
+    margin-top: -16px;
+}
+
+.collab-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #140a0a;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #1f0f0f;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.collab-badge .cross {
+    color: var(--danger);
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.collab-badge .partner {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
 }
 
 /* --- ТАБ-БАР ВНИЗУ --- */
@@ -333,14 +373,11 @@ body {
     padding: 0; 
     border-radius: 16px;
     background: #1e1e24; /* Темный фон под реф */
-    
-    /* ⚡ ТУТ ИСПРАВЛЕНИЕ: разрешаем вертикальный скролл */
     overflow-y: auto; 
     overflow-x: hidden;
-    max-height: 85vh; /* Максимальная высота окна, чтобы не вылезало за экран */
+    max-height: 85vh;
 }
 
-/* Скрываем визуально ползунок скролла для эстетики, но оставляем скролл рабочим */
 .product-details-modal::-webkit-scrollbar {
     width: 0px;
     background: transparent;
