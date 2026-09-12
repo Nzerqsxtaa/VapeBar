@@ -16,30 +16,20 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
-<div class="logo-container" style="margin-bottom: 25px; padding: 18px 15px; background: linear-gradient(135deg, #180a0a 0%, #0d0505 100%); border-radius: 16px; border: 1px solid rgba(255, 0, 0, 0.15); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(255, 0, 0, 0.05); text-align: center; position: relative; overflow: hidden;">
-
-    <!-- Легкий декоративный блик на фоне карточки -->
-    <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,0,0,0.08) 0%, transparent 50%); pointer-events: none;"></div>
-
-    <!-- Верхняя часть: VAPE BAR 2.0 -->
-    <div style="margin: 0; font-size: 28px; font-weight: 900; font-style: italic; line-height: 1; position: relative; z-index: 1;">
-        <span style="color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">VAPE</span>
-        <span style="color: #ff0000; text-shadow: 0 0 12px rgba(255,0,0,0.4);">BAR</span>
-        <sup style="color: #ff0000; font-size: 13px; margin-left: 2px; font-weight: bold;">2.0</sup>
+<div class="header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 15px;">
+    <!-- VAPE BAR 2.0 -->
+    <div style="font-size: 28px; font-weight: 900; font-style: italic; line-height: 1;">
+        <span style="color: #ffffff;">VAPE</span>
+        <span style="color: #ff0000;">BAR</span><sup style="color: #ff0000; font-size: 14px; margin-left: 2px;">2.0</sup>
     </div>
-
-    <!-- Элегантный разделитель с крестиком -->
-    <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0; position: relative; z-index: 1;">
-        <div style="height: 1px; width: 45px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));"></div>
-        <span style="color: #777; font-size: 11px; font-weight: bold;">✕</span>
-        <div style="height: 1px; width: 45px; background: linear-gradient(270deg, transparent, rgba(255,255,255,0.15));"></div>
+    
+    <!-- Крестик (с минимальным отступом) -->
+    <span style="color: #555555; font-size: 12px; font-weight: bold; margin: 4px 0;">✕</span>
+    
+    <!-- MISTCLOUD в сине-голубом градиенте -->
+    <div style="font-size: 24px; font-weight: 900; font-style: italic; line-height: 1; letter-spacing: 2px; background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        MISTCLOUD
     </div>
-
-    <!-- Нижняя часть: MISTCLOUD -->
-    <div style="margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 3px; line-height: 1; position: relative; z-index: 1;">
-        <span style="color: #cccccc;">MIST</span><span style="color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.3);">CLOUD</span>
-    </div>
-
 </div>
 
     <nav class="tab-bar">
