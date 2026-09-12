@@ -16,21 +16,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
-<div class="header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 15px;">
-    <!-- VAPE BAR 2.0 -->
-    <div style="font-size: 28px; font-weight: 900; font-style: italic; line-height: 1;">
-        <span style="color: #ffffff;">VAPE</span>
-        <span style="color: #ff0000;">BAR</span><sup style="color: #ff0000; font-size: 14px; margin-left: 2px;">2.0</sup>
+
+    <!-- ⚡ ИДЕАЛЬНО РОВНАЯ И ЧИСТАЯ ШАПКА ⚡ -->
+    <div class="header">
+        <h1 class="main-logo">
+            <span class="word1">VAPE</span>
+            <span class="word2">BAR</span>
+            <span class="version">2.0</span>
+        </h1>
+        <div class="collab-badge">
+            <span class="cross">✕</span>
+            <span class="partner">MISTCLOUD</span>
+        </div>
     </div>
-    
-    <!-- Крестик (с минимальным отступом) -->
-    <span style="color: #555555; font-size: 12px; font-weight: bold; margin: 4px 0;">✕</span>
-    
-    <!-- MISTCLOUD в сине-голубом градиенте -->
-    <div style="font-size: 24px; font-weight: 900; font-style: italic; line-height: 1; letter-spacing: 2px; background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        MISTCLOUD
-    </div>
-</div>
 
     <nav class="tab-bar">
         <button class="tab-btn active" onclick="showTab('catalog', this)"><i class="fa-solid fa-box-open"></i></button>
@@ -43,7 +41,6 @@
     </nav>
 
     <section id="catalog-tab" class="tab-content active">
-        <!-- ⚡ ДОБАВЛЕНА КАТЕГОРИЯ ВАТКИ ⚡ -->
         <div class="cat-nav">
             <button class="c-btn active" onclick="filterCat('Все', this)">Все</button>
             <button class="c-btn" onclick="filterCat('Одноразки', this)">Одноразки</button>
@@ -180,7 +177,6 @@
             <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()">🎁 Конкурсы</button>
         </div>
 
-        <!-- ⚡ НОВЫЕ ФИЛЬТРЫ ДЛЯ СТАТИСТИКИ ⚡ -->
         <div id="admin-stats-filters" class="hidden info-card" style="margin-bottom: 15px; text-align: left; padding: 12px;">
             <label style="color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Город:</label>
             <select id="stat-city" class="form-input" style="margin-bottom: 10px;">
@@ -201,7 +197,7 @@
         </div>
     </section>
 
-    <!-- МОДАЛКИ (ГОРОД И ТОВАР) -->
+    <!-- МОДАЛКИ -->
     <div id="city-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:white; text-shadow:none; margin-bottom: 5px;">Выберите город</h3>
@@ -246,12 +242,10 @@
         </div>
     </div>
 
-    <!-- ОКНА АДМИНКИ (ТОВАРЫ) -->
     <div id="adm-add-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
             <input type="text" id="add-name" class="form-input" placeholder="Название товара" style="margin-bottom:10px;">
-            <!-- ⚡ ДОБАВЛЕНА КАТЕГОРИЯ ВАТКИ В ВЫБОР ⚡ -->
             <select id="add-cat" class="form-input" style="margin-bottom:10px;">
                 <option value="Одноразки">Одноразки</option>
                 <option value="Жидкости">Жидкости</option>
@@ -299,7 +293,6 @@
         </div>
     </div>
 
-    <!-- ОКНО: СОЗДАНИЕ КОНКУРСА -->
     <div id="adm-gw-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">🎁 Новый конкурс</h3>
@@ -320,7 +313,6 @@
         </div>
     </div>
 
-    <!-- ОКНО: СПИСОК КОНКУРСОВ ДЛЯ КЛИЕНТА -->
     <div id="client-gw-modal" class="modal-overlay hidden">
         <div class="modal-content" style="padding-top: 40px;">
             <button class="close-btn top-close" onclick="closeAdmModal('client-gw-modal')">
