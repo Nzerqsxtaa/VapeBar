@@ -29,7 +29,7 @@ body {
     padding: 0 15px 90px 15px;
 }
 
-/* --- ШАПКА (ОБНОВЛЕННЫЙ ДИЗАЙН) --- */
+/* --- ШАПКА --- */
 .header { 
     text-align: center; 
     padding: 20px 0 15px 0; 
@@ -62,30 +62,6 @@ body {
     font-size: 14px;
     margin-left: 4px;
     margin-top: -16px;
-}
-
-.collab-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: #140a0a;
-    padding: 6px 14px;
-    border-radius: 20px;
-    border: 1px solid #1f0f0f;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-
-.collab-badge .cross {
-    color: var(--danger);
-    font-size: 10px;
-    font-weight: 900;
-}
-
-.collab-badge .partner {
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 2px;
 }
 
 /* --- ТАБ-БАР ВНИЗУ --- */
@@ -257,7 +233,6 @@ body {
     font-size: 16px; 
 }
 
-/* Кнопка с сумочкой */
 .add-btn-icon {
     position: absolute; 
     bottom: 5px; 
@@ -370,9 +345,9 @@ body {
 .product-details-modal {
     text-align: left; 
     position: relative; 
-    padding: 0; 
+    padding: 0 !important; 
     border-radius: 16px;
-    background: #1e1e24; /* Темный фон под реф */
+    background: #1e1e24;
     overflow-y: auto; 
     overflow-x: hidden;
     max-height: 85vh;
