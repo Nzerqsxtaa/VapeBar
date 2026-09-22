@@ -4,25 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VAPE BAR 2.0</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#e60000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="icon-192.png">
-
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
-
     <div class="header">
         <h1 class="main-logo">
             <span class="word1">VAPE</span>
             <span class="word2">BAR</span>
             <span class="version">2.0</span>
         </h1>
+    </div>
+
+    <!-- ПОИСК -->
+    <div class="search-container" id="search-block">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="search-input" class="search-input" placeholder="Поиск по товарам..." oninput="handleSearch()">
     </div>
 
     <nav class="tab-bar">
@@ -47,14 +45,6 @@
 
     <!-- КАТАЛОГ -->
     <section id="catalog-tab" class="tab-content active">
-        
-        <!-- СТРОКА ПОИСКА (КАК НА МАРКЕТПЛЕЙСАХ) -->
-        <div class="search-container">
-            <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input type="text" id="search-input" class="search-input" placeholder="Поиск по товарам..." oninput="handleSearch()">
-        </div>
-
-        <!-- КАТЕГОРИИ -->
         <div class="cat-nav">
             <button class="c-btn active" onclick="filterCat('Все', this)">Все</button>
             <button class="c-btn" onclick="filterCat('Одноразки', this)">Одноразки</button>
@@ -63,7 +53,6 @@
             <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
             <button class="c-btn" onclick="filterCat('Снюс', this)">Снюс</button>
         </div>
-
         <div id="product-grid" class="grid"></div>
     </section>
 
@@ -83,11 +72,18 @@
         <div class="info-card" style="margin-bottom: 20px;">
             <div class="form-group">
                 <label>Способ получения:</label>
-                <input type="text" id="co-delivery" class="form-input" value="Самовывоз" readonly style="color: var(--gray);">
+                <select id="co-delivery" class="form-input" onchange="toggleDelivery()">
+                    <option value="Самовывоз">Самовывоз (Бесплатно)</option>
+                    <option value="Доставка">Доставка (По тарифу)</option>
+                </select>
+            </div>
+            <div class="form-group" id="address-group" style="display: none;">
+                <label>Точный адрес доставки:</label>
+                <input type="text" id="co-address" class="form-input" placeholder="Улица, дом, квартира">
             </div>
             <div class="form-group">
                 <label>Город (выбран в каталоге):</label>
-                <div class="form-input" style="background: var(--dark-bg); color: var(--gray); border-color: var(--border); cursor: not-allowed;">
+                <div class="form-input" style="cursor: not-allowed; opacity: 0.7;">
                     <span id="co-city-display">Не выбран</span>
                 </div>
             </div>
@@ -115,7 +111,7 @@
                 <label for="co-bonuses">Списать бонусы (<span id="co-bonus-count" style="color:var(--accent); font-weight:bold;">0</span>)</label>
             </div>
             <button class="order-btn" onclick="submitCheckout()" style="margin-top: 20px;">Подтвердить заказ</button>
-            <button class="c-btn" onclick="backToCart()" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border); color: var(--gray);">Назад в корзину</button>
+            <button class="outline-btn" onclick="backToCart()" style="margin-top: 10px;">Назад в корзину</button>
         </div>
     </section>
 
@@ -125,13 +121,11 @@
         <div class="profile-main-card">
             <div class="profile-header-new">
                 <div class="avatar-container">
-                    <img id="u-avatar" src="" alt="Avatar" style="display: none;">
                     <div id="u-avatar-fallback">👤</div>
                 </div>
                 <div class="profile-info-new">
                     <h3 id="u-name">Загрузка...</h3>
                     <p id="u-id">ID: ---</p>
-                    <div class="vip-badge" id="u-vip">---</div>
                     <p style="margin-top: 6px; color: var(--gray); font-size: 12px; cursor: pointer;" onclick="openCityModal()">
                         📍 <span id="u-city-display">Город не выбран</span> <i class="fa-solid fa-pen" style="margin-left:5px; color:var(--accent);"></i>
                     </p>
@@ -154,7 +148,7 @@
         <h3 class="sub-title">🤝 Реферальная программа</h3>
         <div class="info-card" style="margin-bottom: 20px;">
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px;">
-                Приглашайте друзей и получайте <b>10 баллов</b> за регистрацию и <b>50 баллов</b> за их первый заказ!
+                Приглашайте друзей и получайте <b>5%</b> от суммы каждого их успешного заказа на свой бонусный баланс!
             </p>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
                 <span style="color: white; font-size: 14px;">Вы пригласили:</span>
@@ -172,16 +166,11 @@
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px; margin-bottom: 15px;">
                 Установите магазин на рабочий стол телефона для быстрого доступа в 1 клик!
             </p>
-            <button onclick="installApp()" class="outline-btn">
-                📲 Добавить на рабочий стол
-            </button>
+            <button onclick="installApp()" class="outline-btn">📲 Добавить на рабочий стол</button>
         </div>
 
         <h3 class="sub-title">🎁 Актуальные розыгрыши</h3>
-        <button onclick="openClientGiveaways()" class="order-btn" style="margin-bottom: 20px;">
-            🎉 Участвовать в конкурсах
-        </button>
-
+        <button onclick="openClientGiveaways()" class="order-btn" style="margin-bottom: 20px;">🎉 Участвовать в конкурсах</button>
     </section>
 
     <!-- АДМИНКА -->
@@ -194,38 +183,21 @@
             <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()">👥 Клиенты</button>
             <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()">🎁 Конкурсы</button>
         </div>
-
-        <div id="admin-stats-filters" class="hidden info-card" style="margin-bottom: 15px; text-align: left; padding: 12px;">
-            <label style="color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Город:</label>
-            <select id="stat-city" class="form-input" style="margin-bottom: 10px;">
-                <option value="Все">Все города</option>
-                <option value="Междуреченск">Междуреченск</option>
-                <option value="Мыски">Мыски</option>
-            </select>
-            <label style="color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Период (от и до):</label>
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <input type="date" id="stat-start" class="form-input" style="color-scheme: dark; padding: 10px 5px;">
-                <input type="date" id="stat-end" class="form-input" style="color-scheme: dark; padding: 10px 5px;">
-            </div>
-            <button class="order-btn" onclick="applyAdminStatsFilter()" style="padding: 10px;">Показать статистику</button>
-        </div>
-
         <div id="admin-workspace">
             <p style="text-align:center; color:var(--gray);">Загрузка панели...</p>
         </div>
     </section>
 
-    <!-- МОДАЛКИ ВЫБОРА ГОРОДА -->
+    <!-- МОДАЛКА ВЫБОРА ГОРОДА -->
     <div id="city-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 style="color:white; text-shadow:none; margin-bottom: 5px;">Выберите город</h3>
-            <p style="color:var(--gray); font-size: 12px; margin-bottom: 20px;">Пока доступны только два города</p>
+            <h3 style="color:white; margin-top:0; margin-bottom: 5px;">Выберите город</h3>
+            <p style="color:var(--gray); font-size: 13px; margin-bottom: 20px;">В каком городе вы находитесь?</p>
             <div class="flavor-pills-grid" style="display:flex; flex-direction:column; gap:10px;">
                 <button class="flavor-pill" onclick="selectCity('Междуреченск')">Междуреченск</button>
                 <button class="flavor-pill" onclick="selectCity('Мыски')">Мыски</button>
-                <button class="flavor-pill" disabled style="opacity:0.4;">ГРЭС (Мыски) — Скоро</button>
-                <button class="flavor-pill" disabled style="opacity:0.4;">Новокузнецк — Скоро</button>
             </div>
+            <button class="outline-btn" style="margin-top: 15px;" onclick="closeAdmModal('city-modal')">Закрыть</button>
         </div>
     </div>
 
@@ -233,6 +205,7 @@
     <div id="product-modal" class="modal-overlay hidden">
         <div class="modal-content product-details-modal">
             <div id="pm-image-container"></div>
+            
             <h3 id="pm-title">Название</h3>
             <p id="pm-price">0 ₽</p>
             
@@ -240,17 +213,19 @@
                 <div id="pm-flavor-list" class="flavor-pills-grid"></div>
             </div>
 
+            <!-- ЗДЕСЬ ЖЕСТКО ЗАДАН ЗАГОЛОВОК, JS ВСТАВИТ ТОЛЬКО ТЕКСТ -->
             <div id="pm-desc-container">
-                <p id="pm-desc" class="pm-description"></p>
+                <p style="color: white; font-weight: bold; font-size: 16px; margin: 0 0 8px 0;">Описание товара</p>
+                <p id="pm-desc" style="margin: 0; color: var(--gray); font-size: 14px; line-height: 1.4;"></p>
             </div>
             
             <div id="pm-stock-info"></div>
 
-            <button id="pm-add-btn">Добавить в корзину</button>
+            <button id="pm-add-btn" class="order-btn" style="width: calc(100% - 40px); margin: 0 auto 20px auto;">Добавить в корзину</button>
         </div>
     </div>
 
-    <!-- ОКНА АДМИНКИ -->
+    <!-- МОДАЛКИ АДМИНКИ -->
     <div id="adm-add-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
@@ -263,13 +238,9 @@
                 <option value="Снюс">Снюс</option>
                 <option value="Ватки">Ватки</option>
             </select>
-            <select id="add-city" class="form-input" style="margin-bottom:10px;">
-                <option value="Междуреченск">Склад: Междуреченск</option>
-                <option value="Мыски">Склад: Мыски</option>
-            </select>
             <input type="number" id="add-price" class="form-input" placeholder="Цена (₽)" style="margin-bottom:10px;">
             <input type="number" id="add-stock" class="form-input" placeholder="Остаток (если без вкусов)" style="margin-bottom:10px;">
-            <label style="text-align:left; color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Фото товара (необязательно):</label>
+            <label style="text-align:left; color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Фото товара:</label>
             <input type="file" id="add-img" accept="image/*" class="form-input" style="margin-bottom:15px; padding: 8px;">
             <button class="order-btn" onclick="submitNewProduct()">Добавить</button>
             <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-add-modal')">Отмена</button>
@@ -305,18 +276,10 @@
     <div id="adm-gw-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">🎁 Новый конкурс</h3>
-            <textarea id="gw-text" class="form-input" rows="3" placeholder="Описание (что разыгрываем)..." style="margin-bottom:10px; resize:none;"></textarea>
+            <textarea id="gw-text" class="form-input" rows="3" placeholder="Описание..." style="margin-bottom:10px; resize:none;"></textarea>
             <input type="number" id="gw-winners" class="form-input" placeholder="Количество мест (шт)" value="1" style="margin-bottom:10px;">
-            <input type="number" id="gw-min-order" class="form-input" placeholder="Мин. заказ для участия (₽, 0 = без лимита)" style="margin-bottom:10px;">
-            
-            <label style="text-align:left; color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Заказы оформлены в период (от и до):</label>
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <input type="date" id="gw-order-start" class="form-input" style="color-scheme: dark; padding: 10px 5px;">
-                <input type="date" id="gw-order-end" class="form-input" style="color-scheme: dark; padding: 10px 5px;">
-            </div>
-
-            <input type="text" id="gw-end-date" class="form-input" placeholder="Дата подведения итогов (Текст)" style="margin-bottom:15px;">
-            
+            <input type="number" id="gw-min-order" class="form-input" placeholder="Мин. заказ для участия (₽)" style="margin-bottom:10px;">
+            <input type="text" id="gw-end-date" class="form-input" placeholder="Дата подведения итогов" style="margin-bottom:15px;">
             <button class="order-btn" onclick="submitNewGiveaway()">Создать и запустить</button>
             <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
         </div>
