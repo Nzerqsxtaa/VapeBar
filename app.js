@@ -6,11 +6,11 @@ let products = [];
 let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
-let userCity = localStorage.getItem('vapebar_city');
 let userBonuses = 0; 
+let currentCategory = 'Все';
+let searchQuery = '';
 
 window.onload = () => {
-    checkCity();
     const urlParams = new URLSearchParams(window.location.search);
     const urlUid = urlParams.get('uid');
     let urlName = urlParams.get('name') || "Гость";
@@ -22,35 +22,14 @@ window.onload = () => {
     if (user.first_name) {
         let displayName = user.first_name;
         if (displayName.includes(' | ')) displayName = displayName.split(' | ')[1];
-
         const uName = document.getElementById('u-name');
         if (uName) uName.innerText = displayName;
-        
         const uId = document.getElementById('u-id');
         if (uId) uId.innerText = "ID: " + (user.id || "---");
-
-        const avatarImg = document.getElementById('u-avatar');
-        const avatarFallback = document.getElementById('u-avatar-fallback');
-        
-        if (user.photo_url) {
-            if (avatarImg) {
-                avatarImg.src = user.photo_url;
-                avatarImg.style.display = 'block';
-                if (avatarFallback) avatarFallback.style.display = 'none';
-            }
-        } else {
-            if (avatarFallback) {
-                const firstLetter = displayName.replace(/[^a-zA-Zа-яА-Я]/g, '').charAt(0).toUpperCase() || '👤';
-                avatarFallback.innerText = firstLetter;
-                if (avatarImg) avatarImg.style.display = 'none';
-                avatarFallback.style.display = 'flex';
-            }
-        }
     }
 
     const adminIds = [7764501774, 5526616552, 8649568755, 7542257628];
     const currentUserId = parseInt(urlUid) || user?.id;
-    
     if (adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
@@ -59,56 +38,17 @@ window.onload = () => {
     loadCart(); 
     updateCartUI();
     loadProfileData();
-    if(userCity) loadCatalog();
+    
+    fetch(`/api/catalog`)
+        .then(response => response.json())
+        .then(data => { products = data; renderProducts(); })
+        .catch(error => console.error("Ошибка загрузки каталога:", error));
 };
 
-function loadCatalog() {
-    fetch(`/api/catalog?city=${encodeURIComponent(userCity)}`, {
-        headers: { "ngrok-skip-browser-warning": "true" }
-    })
-        .then(response => response.json())
-        .then(data => {
-            products = data; 
-            renderProducts(); 
-        })
-        .catch(error => {
-            console.error("Ошибка загрузки каталога:", error);
-            const grid = document.getElementById('product-grid');
-            if(grid) grid.innerHTML = '<p style="color: white; text-align: center; padding: 20px; grid-column: span 2;">Сервер временно недоступен. Пожалуйста, перезапустите бота.</p>';
-        });
-}
-
-function checkCity() {
-    if (!userCity) document.getElementById('city-modal').classList.remove('hidden');
-    else updateCityDisplay();
-}
-
-function selectCity(city) {
-    if (userCity && userCity !== city) {
-        clearCart();
-    }
-    userCity = city;
-    localStorage.setItem('vapebar_city', city);
-    document.getElementById('city-modal').classList.add('hidden');
-    updateCityDisplay();
-    loadCatalog();
-}
-
-function openCityModal() { document.getElementById('city-modal').classList.remove('hidden'); }
-
-function updateCityDisplay() {
-    const pDisplay = document.getElementById('u-city-display');
-    if(pDisplay) pDisplay.innerText = userCity;
-    const cDisplay = document.getElementById('co-city-display');
-    if(cDisplay) cDisplay.innerText = userCity;
-}
-
-function saveCart() { localStorage.setItem('cloud_store_cart', JSON.stringify(cart)); }
+function saveCart() { localStorage.setItem('vapelab_cart', JSON.stringify(cart)); }
 function loadCart() {
-    try {
-        let saved = localStorage.getItem('cloud_store_cart');
-        if (saved) cart = JSON.parse(saved);
-    } catch (e) {}
+    try { let saved = localStorage.getItem('vapelab_cart'); if (saved) cart = JSON.parse(saved); } 
+    catch (e) {}
 }
 
 function clearCart() {
@@ -126,33 +66,56 @@ function showTab(tabId, btn) {
 function filterCat(cat, btn) {
     document.querySelectorAll('.c-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderProducts(cat);
+    currentCategory = cat;
+    renderProducts();
 }
 
-function renderProducts(f = 'Все') {
+function handleSearch() {
+    searchQuery = document.getElementById('search-input').value.toLowerCase().trim();
+    renderProducts();
+}
+
+function renderProducts() {
     const grid = document.getElementById('product-grid');
     if(!grid) return;
     grid.innerHTML = '';
-    const items = f === 'Все' ? products : products.filter(p => p.category === f || p.cat === f);
+    
+    let items = products;
+    
+    if (currentCategory !== 'Все') {
+        items = items.filter(p => p.category === currentCategory || p.cat === currentCategory);
+    }
+    
+    if (searchQuery !== '') {
+        items = items.filter(p => p.name.toLowerCase().includes(searchQuery) || (p.description && p.description.toLowerCase().includes(searchQuery)));
+    }
     
     if (items.length === 0) {
-        grid.innerHTML = `<p style="color: var(--gray); text-align: center; padding: 20px; grid-column: span 2;">В городе ${userCity} пока нет товаров этой категории.</p>`;
+        grid.innerHTML = `<p style="color: var(--gray); text-align: center; padding: 20px; grid-column: span 2;">Ничего не найдено.</p>`;
         return;
     }
 
     items.forEach(p => {
         const imageHTML = p.img || p.image_url
-            ? `<img src="${p.img || p.image_url}" alt="${p.name}" class="product-image">` 
+            ? `<img src="${p.img || p.image_url}" alt="${p.name}" class="product-img">` 
             : `<div class="product-placeholder">💨</div>`;
 
         grid.innerHTML += `
-            <div class="product-card" onclick="openProductModal(${p.id})" style="cursor: pointer;">
-                ${imageHTML}
-                <div class="p-info">
-                    <b>${p.name}</b><br>
-                    <span>${p.price} ₽</span>
+            <div class="product-card" onclick="openProductModal(${p.id})" onmousemove="tiltCard(event, this)" onmouseleave="resetCard(this)">
+                <div class="card-image-wrapper">
+                    <div class="card-bg-waves"></div>
+                    <div class="heart-icon"><i class="fa-solid fa-heart"></i></div>
+                    ${imageHTML}
                 </div>
-                <button class="add-btn-icon"><i class="fa-solid fa-bag-shopping"></i></button>
+                <div class="card-info">
+                    <div>
+                        <h4 class="card-title">${p.name}</h4>
+                        <p class="card-specs">${p.category}</p>
+                    </div>
+                    <div class="card-price-row">
+                        <div class="card-price">${p.price} <span>₽</span></div>
+                    </div>
+                </div>
             </div>`;
     });
 }
@@ -160,31 +123,32 @@ function renderProducts(f = 'Все') {
 function openProductModal(id) {
     const p = products.find(i => i.id === id);
     if (!p) return;
-    
     currentSelectedProductId = id;
     currentSelectedFlavor = null;
     
     const imgContainer = document.getElementById('pm-image-container');
     const imgUrl = p.img || p.image_url;
-    if (imgUrl) imgContainer.innerHTML = `<img src="${imgUrl}" alt="${p.name}">`;
-    else imgContainer.innerHTML = `<div class="product-placeholder-large">💨</div>`;
+    
+    // Чистая вставка картинки без программного крестика
+    if (imgUrl) {
+        imgContainer.innerHTML = `<img src="${imgUrl}" alt="${p.name}">`;
+    } else {
+        imgContainer.innerHTML = `<div class="product-placeholder-large">💨</div>`;
+    }
     
     document.getElementById('pm-title').innerText = p.name;
     document.getElementById('pm-price').innerText = p.price + ' ₽';
     
-    let descText = "";
-    if (p.desc && p.desc.trim() !== "") descText = p.desc;
-    else if (p.description && p.description.trim() !== "") descText = p.description;
-    else descText = `Оригинальный товар из категории «${p.cat || p.category}».`;
-    document.getElementById('pm-desc').innerText = descText;
+    // Чистое описание без повторного заголовка "Описание товара"
+    document.getElementById('pm-desc').innerHTML = `<span style="color: var(--gray); line-height: 1.4; font-size: 14px;">${p.description || p.desc || 'Оригинальный товар из категории «' + p.category + '».'}</span>`;
 
+    // Галочка наличия
     const stockInfo = document.getElementById('pm-stock-info');
-    if (p.stock > 0) {
-        stockInfo.innerText = `✅ В наличии: ${p.stock} шт.`;
-        stockInfo.style.color = '#4caf50';
-    } else {
-        stockInfo.innerText = `⚠️ Заканчивается`;
-        stockInfo.style.color = 'var(--danger)';
+    if (p.stock > 0) { 
+        stockInfo.innerHTML = `<span style="background: #25d366; color: #fff; padding: 2px 5px; border-radius: 4px; font-size: 10px; display: inline-flex; align-items: center; justify-content: center;">✔</span><span style="color:#25d366;">В наличии: ${p.stock} шт.</span>`; 
+    } 
+    else { 
+        stockInfo.innerHTML = `❌ <span style="color:var(--danger);">Нет в наличии</span>`; 
     }
     
     const flavorsContainer = document.getElementById('pm-flavors-container');
@@ -193,14 +157,12 @@ function openProductModal(id) {
     if (p.flavors && p.flavors.length > 0) {
         flavorsContainer.classList.remove('hidden');
         flavorList.innerHTML = '';
-        
         p.flavors.forEach((flavor, index) => {
             const btn = document.createElement('button');
             btn.className = 'flavor-pill';
             btn.innerText = flavor;
             btn.onclick = () => selectProductFlavor(flavor, btn);
             flavorList.appendChild(btn);
-            
             if(index === 0) selectProductFlavor(flavor, btn); 
         });
     } else {
@@ -209,10 +171,7 @@ function openProductModal(id) {
     
     const addBtn = document.getElementById('pm-add-btn');
     addBtn.onclick = () => {
-        if (p.flavors && p.flavors.length > 0 && !currentSelectedFlavor) {
-            tg.showAlert("Пожалуйста, выберите вкус!");
-            return;
-        }
+        if (p.flavors && p.flavors.length > 0 && !currentSelectedFlavor) { tg.showAlert("Выберите вкус!"); return; }
         addExactProductToCart(p, currentSelectedFlavor);
         closeProductModal();
     };
@@ -223,10 +182,8 @@ function openProductModal(id) {
 
 function selectProductFlavor(flavor, btnElement) {
     currentSelectedFlavor = flavor;
-    
     document.querySelectorAll('.flavor-pill').forEach(b => b.classList.remove('active'));
     if(btnElement) btnElement.classList.add('active');
-    
     if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }
 
@@ -235,7 +192,7 @@ function closeProductModal() { document.getElementById('product-modal').classLis
 function addExactProductToCart(product, flavor) {
     const currentCount = cart.filter(item => item.id === product.id).length;
     if (product.stock !== undefined && currentCount >= product.stock) {
-        tg.showAlert("Больше нет в наличии на складе! 😢"); return;
+        tg.showAlert("Больше нет в наличии! 😢"); return;
     }
     const finalName = flavor ? `${product.name} (${flavor})` : product.name;
     cart.push({ id: product.id, name: finalName, price: product.price });
@@ -243,8 +200,7 @@ function addExactProductToCart(product, flavor) {
 }
 
 function removeFromCart(index) {
-    cart.splice(index, 1); saveCart();
-    tg.HapticFeedback.impactOccurred('light'); updateCartUI();
+    cart.splice(index, 1); saveCart(); tg.HapticFeedback.impactOccurred('light'); updateCartUI();
 }
 
 function updateCartUI() {
@@ -259,56 +215,51 @@ function updateCartUI() {
     let total = 0;
 
     if (cart.length > 0) {
-        list.innerHTML += `<button onclick="clearCart()" style="background: #ff0000; color: white; border: none; padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 15px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 0, 0, 0.2);">🗑 Очистить корзину</button>`;
+        list.innerHTML += `<button onclick="clearCart()" style="background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 15px; font-weight: bold; cursor: pointer;">🗑 Очистить корзину</button>`;
     }
     
     cart.forEach((item, index) => {
         total += item.price;
         const originalProduct = products.find(p => p.id === item.id);
         const imgUrl = originalProduct ? (originalProduct.img || originalProduct.image_url) : null;
-        const imageHTML = imgUrl 
-            ? `<img src="${imgUrl}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 10px; flex-shrink: 0;">` 
-            : `<div style="width: 60px; height: 60px; border-radius: 10px; background: #140a0a; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">💨</div>`;
+        const imageHTML = imgUrl ? `<img src="${imgUrl}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 10px; flex-shrink: 0;">` : `<div style="width: 60px; height: 60px; border-radius: 10px; background: #080a10; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">💨</div>`;
 
         list.innerHTML += `
-            <div class="product-card" style="display: flex; flex-direction: row; width: 100%; padding: 12px; align-items: center; box-sizing: border-box; margin-bottom: 10px; background: #140a0a; border-radius: 16px; border: 1px solid #1f0f0f;">
+            <div class="product-card" style="flex-direction: row; padding: 12px; align-items: center; transform: none; box-shadow: none; border: 1px solid var(--border); margin-bottom: 10px;">
                 ${imageHTML}
                 <div style="flex-grow: 1; padding-left: 12px; text-align: left; overflow: hidden;">
-                    <b style="font-size: 14px; color: #fff; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</b>
-                    <span style="color: var(--accent); font-weight: 800; font-size: 15px; margin-top: 4px; display: inline-block;">${item.price} ₽</span>
+                    <b style="font-size: 13px; color: #fff; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</b>
+                    <span style="color: var(--danger); font-weight: 800; font-size: 15px; margin-top: 4px; display: inline-block;">${item.price} ₽</span>
                 </div>
-                <button style="background: #ff0000; border: none; width: 34px; height: 34px; border-radius: 10px; color: white; cursor: pointer; flex-shrink: 0; margin-left: 10px;" onclick="removeFromCart(${index})">❌</button>
+                <button style="background: transparent; border: none; color: var(--gray); cursor: pointer; font-size: 20px; margin-left: 10px;" onclick="removeFromCart(${index})"><i class="fa-solid fa-trash"></i></button>
             </div>`;
     });
-    
     const totalEl = document.getElementById('total-price');
     if(totalEl) totalEl.innerText = total + ' ₽';
 }
 
+function toggleDelivery() {
+    const type = document.getElementById('co-delivery').value;
+    const addrGroup = document.getElementById('address-group');
+    if (addrGroup) addrGroup.style.display = type === 'Самовывоз' ? 'none' : 'block';
+}
+
 function openCheckout() {
     if(cart.length === 0) return tg.showAlert("Сначала добавьте товары в корзину!");
-    if(!userCity) {
-        tg.showAlert("Пожалуйста, выберите город в профиле!");
-        return openCityModal();
-    }
     
     const bonuses = userBonuses;
     const total = cart.reduce((s,i)=>s+i.price, 0);
-    const minStep = 10; // Минимальная сумма и шаг списания
-    
-    // Считаем максимально возможную сумму списания, кратную 10
+    const minStep = 10;
     const maxSpend = Math.min(bonuses, total);
     const maxSpendMultiple = Math.floor(maxSpend / minStep) * minStep;
     
     const bonusCheckbox = document.getElementById('co-bonuses');
     if (bonusCheckbox) {
         const parent = bonusCheckbox.parentElement;
-        
-        // Если кратная сумма равна 0 (т.е. баллов меньше 10), вообще скрываем блок списания
         if (maxSpendMultiple <= 0) {
             parent.style.display = 'none';
         } else {
-            parent.style.display = 'block'; 
+            parent.style.display = 'flex'; 
             bonusCheckbox.checked = false;
             
             const bonusCountDisplay = document.getElementById('co-bonus-count');
@@ -323,29 +274,23 @@ function openCheckout() {
                 dynamicInput.min = minStep;
                 dynamicInput.style.width = '80px';
                 dynamicInput.style.marginLeft = '10px';
-                dynamicInput.style.background = '#2a1a1a';
-                dynamicInput.style.color = 'var(--accent)';
-                dynamicInput.style.border = '1px solid var(--accent)';
+                dynamicInput.style.background = 'var(--dark-bg)';
+                dynamicInput.style.color = 'var(--text)';
+                dynamicInput.style.border = '1px solid var(--border)';
                 dynamicInput.style.borderRadius = '6px';
                 dynamicInput.style.padding = '4px 8px';
-                dynamicInput.style.fontSize = '14px';
-                dynamicInput.placeholder = 'Сумма';
                 
                 parent.appendChild(dynamicInput);
                 
                 bonusCheckbox.addEventListener('change', function() {
                     dynamicInput.style.display = this.checked ? 'inline-block' : 'none';
-                    if (this.checked) {
-                        dynamicInput.value = maxSpendMultiple; 
-                        dynamicInput.focus();
-                    } else {
-                        dynamicInput.value = '';
-                    }
+                    if (this.checked) { dynamicInput.value = maxSpendMultiple; dynamicInput.focus(); } 
+                    else { dynamicInput.value = ''; }
                 });
                 
                 dynamicInput.addEventListener('change', function() {
                     let val = parseInt(this.value) || 0;
-                    val = Math.floor(val / minStep) * minStep; // Принудительная кратность 10
+                    val = Math.floor(val / minStep) * minStep; 
                     if (val > maxSpendMultiple) val = maxSpendMultiple;
                     if (val < minStep) val = minStep;
                     this.value = val;
@@ -358,6 +303,7 @@ function openCheckout() {
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
+    toggleDelivery();
 }
 
 function backToCart() {
@@ -366,7 +312,9 @@ function backToCart() {
 }
 
 function submitCheckout() {
-    const type = "Самовывоз";
+    const type = document.getElementById('co-delivery').value;
+    const addressEl = document.getElementById('co-address');
+    const address = addressEl ? addressEl.value.trim() : "Не указан";
     const dateTime = document.getElementById('co-datetime').value.trim();
     const phone = document.getElementById('co-phone').value.trim();
     const payment = document.getElementById('co-payment').value;
@@ -380,31 +328,21 @@ function submitCheckout() {
     const dynamicInput = document.getElementById('co-bonus-input'); 
 
     if (bonusCheckbox && bonusCheckbox.checked) {
-        if (dynamicInput && dynamicInput.value) {
-            useBonuses = parseInt(dynamicInput.value) || 0;
-        } else {
-            useBonuses = Math.min(userBonuses, total); 
-        }
-        // Финальная проверка на кратность перед отправкой
+        if (dynamicInput && dynamicInput.value) { useBonuses = parseInt(dynamicInput.value) || 0; } 
+        else { useBonuses = Math.min(userBonuses, total); }
         useBonuses = Math.floor(useBonuses / minStep) * minStep;
     }
 
-    if (useBonuses > userBonuses) useBonuses = Math.floor(userBonuses / minStep) * minStep;
-    if (useBonuses > total) useBonuses = Math.floor(total / minStep) * minStep;
-    if (useBonuses < 0) useBonuses = 0;
+    if(!age) return tg.showAlert("Подтвердите возраст (18+)");
+    if(type === 'Доставка' && address.length < 5) return tg.showAlert("Введите точный адрес доставки");
+    if(dateTime.length < 3) return tg.showAlert("Укажите желаемую дату и время");
+    if(phone.length < 7) return tg.showAlert("Введите корректный номер телефона");
 
-    if(!age) return tg.showAlert("Для оформления заказа необходимо подтвердить возраст (18+)");
-    if(dateTime.length < 3) return tg.showAlert("Пожалуйста, укажите желаемую дату и время");
-    if(phone.length < 7) return tg.showAlert("Пожалуйста, введите корректный номер телефона");
-    if(!userCity) return tg.showAlert("Сначала выберите город!");
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const userId = parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id);
+    const userId = parseInt(new URLSearchParams(window.location.search).get('uid')) || (tg.initDataUnsafe?.user?.id);
 
     const orderData = {
         userId: userId, items: cart, total: total, deliveryType: type,
-        city: userCity, address: "Точка в городе " + userCity, dateTime: dateTime,
-        payment: payment, phone: phone, useBonuses: useBonuses 
+        address: address, dateTime: dateTime, payment: payment, phone: phone, useBonuses: useBonuses 
     };
 
     const btn = document.querySelector('#checkout-tab .order-btn');
@@ -423,7 +361,7 @@ function submitCheckout() {
     })
     .catch(error => {
         if(btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerText = 'Подтвердить заказ'; }
-        tg.showAlert("❌ Сбой при отправке: " + error.message);
+        tg.showAlert("❌ Сбой при отправке. Проверьте соединение.");
     });
 }
 
@@ -435,12 +373,10 @@ function getMyId() {
 function loadProfileData() {
     const userId = getMyId();
     if(!userId) return;
-    
-    fetch(`/api/profile?user_id=${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    fetch(`/api/profile?user_id=${userId}`)
         .then(res => res.json())
         .then(data => {
             userBonuses = data.bonuses || 0; 
-            
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
             const uSpent = document.getElementById('u-spent');
@@ -456,191 +392,103 @@ function loadProfileData() {
             if(uCb) uCb.innerText = `Кэшбек: ${data.cashback_pct}%`;
             const uRefs = document.getElementById('u-refs');
             if(uRefs) uRefs.innerText = `${data.refs} чел.`;
+            
             const uRefLink = document.getElementById('u-ref-link');
-            if(uRefLink) uRefLink.value = `https://t.me/order9ode_bot?start=ref_${userId}`;
-        })
-        .catch(e => console.log('Ошибка профиля:', e));
+            if(uRefLink) uRefLink.value = `https://t.me/vapelab2_bot?start=ref_${userId}`;
+        });
 }
 
 function copyRefLink() {
     const linkInput = document.getElementById('u-ref-link');
     linkInput.select(); document.execCommand("copy");
     if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-    tg.showAlert("✅ Реферальная ссылка скопирована!");
+    tg.showAlert("✅ Ссылка скопирована!");
 }
 
-function installApp() {
-    if (tg.addToHomeScreen) {
-        tg.addToHomeScreen();
-    } else {
-        tg.showAlert("Ваша версия Telegram не поддерживает быструю установку. Пожалуйста, обновите приложение.");
-    }
-}
-
-/* --- КОНКУРСЫ ДЛЯ КЛИЕНТА --- */
 function openClientGiveaways() {
     document.getElementById('client-gw-modal').classList.remove('hidden');
     const list = document.getElementById('client-gw-list');
     list.innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка конкурсов...</p>';
     
-    fetch(`/api/giveaways?user_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    fetch(`/api/giveaways?user_id=${getMyId()}`)
     .then(res => res.json())
     .then(data => {
-        if (data.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:var(--gray); padding: 20px;">На данный момент нет активных конкурсов 😔</p>';
-            return;
-        }
-        
+        if (data.length === 0) { list.innerHTML = '<p style="text-align:center; color:var(--gray);">Нет активных конкурсов</p>'; return; }
         let html = '';
         data.forEach(g => {
-            let btnHtml = '';
-            if (g.is_participating) {
-                btnHtml = `<button disabled style="width:100%; margin-top:10px; background:#1a2e1a; color:#4caf50; border:1px solid #4caf50; padding:10px; border-radius:12px; font-weight:bold;">✅ Вы уже участвуете</button>`;
-            } else {
-                btnHtml = `<button onclick="joinGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:10px; border-radius:12px; font-weight:bold; cursor:pointer; box-shadow: 0 4px 10px rgba(230, 0, 0, 0.3);">🎁 Участвую</button>`;
-            }
+            let btnHtml = g.is_participating 
+                ? `<button disabled class="order-btn" style="background:var(--dark-bg); color:var(--gray);">✅ Участвуете</button>`
+                : `<button onclick="joinGiveaway(${g.id})" class="order-btn">🎁 Участвую</button>`;
             
-            let minOrderText = g.min_order > 0 ? `Заказ от ${g.min_order} ₽` : 'Без ограничений';
-            
-            let dateRangeText = "За всё время";
-            if (g.order_start > 0 || g.order_end < 2000000000) {
-                const stStr = g.order_start > 0 ? new Date(g.order_start * 1000).toLocaleDateString('ru-RU') : '...';
-                const enStr = g.order_end < 2000000000 ? new Date(g.order_end * 1000).toLocaleDateString('ru-RU') : '...';
-                dateRangeText = `с ${stStr} по ${enStr}`;
-            }
-            
-            html += `
-            <div class="info-card" style="margin-bottom:15px; border: 1px solid var(--accent); padding: 15px;">
-                <h4 style="color:white; margin:0 0 10px 0; font-size:16px;">Розыгрыш #${g.id}</h4>
-                <p style="font-size:13px; color:var(--gray); line-height:1.4; margin-bottom:15px;">${g.text}</p>
-                
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center;">
-                        <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Призовых мест</span>
-                        <b style="color:white; font-size:14px;">${g.winners_count}</b>
-                    </div>
-                    <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center;">
-                        <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Условие</span>
-                        <b style="color:var(--accent); font-size:13px;">${minOrderText}</b>
-                    </div>
-                </div>
-                
-                <div style="background:#140a0a; padding:10px; border-radius:8px; text-align:center; margin-bottom: 15px;">
-                    <span style="font-size:11px; color:var(--gray); display:block; margin-bottom:3px;">Участвуют заказы оформленные:</span>
-                    <b style="color:white; font-size:13px;">${dateRangeText}</b>
-                </div>
-                
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--gray);">
-                    <span>📅 Итоги: <b style="color:white;">${g.end_date}</b></span>
-                    <span>👥 Участников: <b style="color:white;">${g.parts_count}</b></span>
-                </div>
-                
+            html += `<div class="info-card" style="margin-bottom:15px; border-color:var(--border);">
+                <h4 style="color:white; margin:0 0 10px 0;">Розыгрыш #${g.id}</h4>
+                <p style="color:var(--gray);">${g.text}</p>
+                <div style="font-size:12px; margin-bottom:10px;">Мест: <b>${g.winners_count}</b> | Участников: <b>${g.parts_count}</b></div>
                 ${btnHtml}
             </div>`;
         });
         list.innerHTML = html;
-    })
-    .catch(err => {
-        list.innerHTML = `<p style="text-align:center; color:var(--danger);">Ошибка: ${err.message}</p>`;
     });
 }
 
 function joinGiveaway(gw_id) {
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-    
-    fetch(`/api/giveaways/${gw_id}/join`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({user_id: getMyId()})
-    })
-    .then(async res => {
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "Неизвестная ошибка");
-        }
-        return res.json();
-    })
-    .then(() => {
-        tg.showAlert("✅ Поздравляем! Вы успешно стали участником конкурса!");
-        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-        openClientGiveaways(); 
-    })
-    .catch(err => {
-        tg.showAlert(`❌ ${err.message}`);
-        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-    });
+    fetch(`/api/giveaways/${gw_id}/join`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: getMyId()}) })
+    .then(async res => { if (!res.ok) throw new Error((await res.json()).detail); return res.json(); })
+    .then(() => { tg.showAlert("✅ Вы участник!"); openClientGiveaways(); })
+    .catch(err => tg.showAlert(`❌ ${err.message}`));
 }
 
-/* --- АДМИНКА --- */
 function setAdminTabActive(btnId) {
     ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.classList.remove('active');
+        const el = document.getElementById(id); if(el) el.classList.remove('active');
     });
     document.getElementById(btnId).classList.add('active');
-    
-    const statsFilters = document.getElementById('admin-stats-filters');
-    if (statsFilters) {
-        if (btnId === 'btn-adm-stat') {
-            statsFilters.classList.remove('hidden');
-        } else {
-            statsFilters.classList.add('hidden');
-        }
-    }
-
     document.getElementById('admin-workspace').innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка...</p>';
 }
 
 function closeAdmModal(id) { document.getElementById(id).classList.add('hidden'); }
-
-function openAddModal() {
-    document.getElementById('adm-add-modal').classList.remove('hidden');
-}
+function openAddModal() { document.getElementById('adm-add-modal').classList.remove('hidden'); }
 
 let adminProducts = [];
 function loadAdminProducts() {
     setAdminTabActive('btn-adm-prod');
-    fetch(`/api/admin/products?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    fetch(`/api/admin/products?admin_id=${getMyId()}`)
         .then(res => res.json())
         .then(data => {
             adminProducts = data;
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openAddModal()">➕ Добавить товар</button>`;
             data.forEach(p => {
                 html += `
-                <div class="info-card" style="margin-bottom:10px;">
+                <div class="info-card" style="margin-bottom:10px; transform: none;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <div style="text-align:left;">
-                            <b style="color:var(--text);">[${p.city}] ${p.name}</b><br>
+                        <div>
+                            <b style="color:var(--text);">${p.name}</b><br>
                             <span style="color:var(--gray); font-size:12px;">${p.category} | ${p.price}₽</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <button onclick="changeStock(${p.id}, ${p.stock - 1})" style="background:var(--card); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">-</button>
-                            <b style="color:var(--accent); min-width:20px; text-align:center;">${p.stock}</b>
-                            <button onclick="changeStock(${p.id}, ${p.stock + 1})" style="background:var(--card); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">+</button>
+                            <button onclick="changeStock(${p.id}, ${p.stock - 1})" style="background:var(--dark-bg); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">-</button>
+                            <b style="color:var(--text);">${p.stock}</b>
+                            <button onclick="changeStock(${p.id}, ${p.stock + 1})" style="background:var(--dark-bg); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">+</button>
                         </div>
                     </div>
                     <div style="display:flex; gap:5px;">
-                        <button onclick="openFlavorsModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:6px; border-radius:8px; font-size:12px;">Вкусы</button>
-                        <button onclick="openEditModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:var(--gray); padding:6px; border-radius:8px; font-size:12px;">✏️ Изм.</button>
-                        <button onclick="deleteProduct(${p.id})" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; border-radius:8px; font-size:12px;">🗑 Удал.</button>
+                        <button onclick="openFlavorsModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:white; padding:6px; border-radius:8px; font-size:12px;">Вкусы</button>
+                        <button onclick="openEditModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:var(--gray); padding:6px; border-radius:8px; font-size:12px;">Изм.</button>
+                        <button onclick="deleteProduct(${p.id})" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; border-radius:8px; font-size:12px;">Удал.</button>
                     </div>
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>Склад пуст</p>';
-        })
-        .catch(err => tg.showAlert("Ошибка загрузки склада: " + err.message));
+            document.getElementById('admin-workspace').innerHTML = html;
+        });
 }
 
 function changeStock(prodId, newStock) {
     if (newStock < 0) return;
-    fetch(`/api/admin/products/${prodId}/stock?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stock: newStock})
-    }).then(() => loadAdminProducts());
+    fetch(`/api/admin/products/${prodId}/stock?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stock: newStock}) }).then(() => loadAdminProducts());
 }
 
 function deleteProduct(prodId) {
-    if(!confirm("Точно удалить товар?")) return;
-    fetch(`/api/admin/products/${prodId}?admin_id=${getMyId()}`, {method: 'DELETE'}).then(() => loadAdminProducts());
+    if(confirm("Точно удалить товар?")) fetch(`/api/admin/products/${prodId}?admin_id=${getMyId()}`, {method: 'DELETE'}).then(() => loadAdminProducts());
 }
 
 async function submitNewProduct() {
@@ -648,51 +496,32 @@ async function submitNewProduct() {
     const category = document.getElementById('add-cat').value;
     const price = parseFloat(document.getElementById('add-price').value);
     const stock = parseInt(document.getElementById('add-stock').value) || 0;
-    const city = document.getElementById('add-city').value;
     const imgInput = document.getElementById('add-img');
     
     if(!name || isNaN(price)) return tg.showAlert("Заполните название и цену!");
 
     let image_url = null;
     if (imgInput.files && imgInput.files[0]) {
-        tg.showAlert("⏳ Загружаем фото... Пожалуйста, подождите.");
-        const formData = new FormData();
-        formData.append('image', imgInput.files[0]);
-        formData.append('key', '967a6dda6211a62b5f6915a39548b309'); 
+        tg.showAlert("⏳ Загружаем фото...");
+        const formData = new FormData(); formData.append('image', imgInput.files[0]); formData.append('key', '967a6dda6211a62b5f6915a39548b309'); 
         try {
             const imgRes = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
-            const imgData = await imgRes.json();
-            if (imgData.success) image_url = imgData.data.url;
-            else return tg.showAlert("❌ Ошибка сервера при загрузке фото.");
-        } catch (e) {
-            return tg.showAlert("❌ Ошибка сети. Не удалось загрузить фото.");
-        }
+            image_url = (await imgRes.json()).data.url;
+        } catch (e) { return tg.showAlert("❌ Ошибка фото."); }
     }
 
-    const data = { name, category, price, stock, image_url, city };
-    fetch(`/api/admin/products?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    })
-    .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    })
+    const data = { name, category, price, stock, image_url };
+    fetch(`/api/admin/products?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) })
     .then(() => {
-        closeAdmModal('adm-add-modal'); 
-        loadAdminProducts();
-        document.getElementById('add-name').value = ''; document.getElementById('add-price').value = '';
-        document.getElementById('add-stock').value = ''; document.getElementById('add-img').value = '';
-        tg.showAlert(`✅ Товар добавлен на склад: ${city}!`);
-    })
-    .catch(err => {
-        tg.showAlert("❌ Ошибка сервера: " + err.message);
+        closeAdmModal('adm-add-modal'); loadAdminProducts();
+        document.getElementById('add-name').value = ''; document.getElementById('add-price').value = ''; document.getElementById('add-stock').value = '';
+        tg.showAlert(`✅ Товар добавлен!`);
     });
 }
 
 let currentEditProdId = null;
 function openEditModal(id) {
-    const p = adminProducts.find(x => x.id === id);
-    currentEditProdId = id;
+    const p = adminProducts.find(x => x.id === id); currentEditProdId = id;
     document.getElementById('edit-price').value = p.price;
     document.getElementById('edit-desc').value = p.description || '';
     document.getElementById('adm-edit-modal').classList.remove('hidden');
@@ -701,28 +530,26 @@ function openEditModal(id) {
 function saveProductEdit() {
     const price = parseFloat(document.getElementById('edit-price').value);
     const desc = document.getElementById('edit-desc').value.trim();
-    if(isNaN(price)) return tg.showAlert("Укажите цену!");
-    fetch(`/api/admin/products/${currentEditProdId}/edit?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({price: price, description: desc})
-    }).then(() => { closeAdmModal('adm-edit-modal'); loadAdminProducts(); });
+    fetch(`/api/admin/products/${currentEditProdId}/edit?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({price, description: desc}) }).then(() => { closeAdmModal('adm-edit-modal'); loadAdminProducts(); });
 }
 
 let currentFlavors = {};
 function openFlavorsModal(id) {
-    const p = adminProducts.find(x => x.id === id);
-    currentEditProdId = id; currentFlavors = Object.assign({}, p.flavors || {});
+    const p = adminProducts.find(x => x.id === id); 
+    currentEditProdId = id;
+    currentFlavors = Object.assign({}, p.flavors || {});
     document.getElementById('flavor-prod-name').innerText = `Вкусы: ${p.name}`;
-    renderFlavorsAdmin(); document.getElementById('adm-flavors-modal').classList.remove('hidden');
+    renderFlavorsAdmin(); 
+    document.getElementById('adm-flavors-modal').classList.remove('hidden');
 }
 
 function renderFlavorsAdmin() {
     let html = '';
     for (let [flv, count] of Object.entries(currentFlavors)) {
-        html += `
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center; background:var(--card); padding:8px; border-radius:8px; border:1px solid var(--gray);">
+        html += `<div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center; background:var(--dark-bg); padding:8px; border-radius:8px;">
             <span style="color:white; font-size:14px;">${flv}</span>
             <div style="display:flex; align-items:center; gap:8px;">
-                <b style="color:var(--accent); font-size:14px;">${count} шт.</b>
+                <b style="color:var(--text); font-size:14px;">${count} шт.</b>
                 <button onclick="delete currentFlavors['${flv}']; renderFlavorsAdmin()" style="background:var(--danger); border:none; color:white; width:28px; height:28px; border-radius:6px;">✕</button>
             </div>
         </div>`;
@@ -732,266 +559,166 @@ function renderFlavorsAdmin() {
 
 function addFlavorRow() {
     const name = document.getElementById('new-flavor-name').value.trim();
-    const stock = parseInt(document.getElementById('new-flavor-stock').value);
-    if(!name || isNaN(stock)) return tg.showAlert("Введите название и количество!");
-    currentFlavors[name] = stock;
-    document.getElementById('new-flavor-name').value = ''; document.getElementById('new-flavor-stock').value = '';
-    renderFlavorsAdmin();
+    const stock = parseInt(document.getElementById('new-flavor-stock').value) || 1;
+    if(name) { 
+        currentFlavors[name] = stock; 
+        document.getElementById('new-flavor-name').value = ''; 
+        document.getElementById('new-flavor-stock').value = '';
+        renderFlavorsAdmin(); 
+    }
 }
 
 function saveFlavors() {
-    fetch(`/api/admin/products/${currentEditProdId}/flavors?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({flavors: currentFlavors})
-    }).then(() => { closeAdmModal('adm-flavors-modal'); loadAdminProducts(); });
+    fetch(`/api/admin/products/${currentEditProdId}/flavors?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({flavors: currentFlavors}) }).then(() => { closeAdmModal('adm-flavors-modal'); loadAdminProducts(); });
 }
 
 function loadAdminStats() {
     setAdminTabActive('btn-adm-stat');
-    fetchAdminStatsData();
-}
-
-function applyAdminStatsFilter() {
-    fetchAdminStatsData();
-}
-
-function fetchAdminStatsData() {
-    const city = document.getElementById('stat-city').value;
-    const startInput = document.getElementById('stat-start').value;
-    const endInput = document.getElementById('stat-end').value;
-    
-    let url = `/api/admin/stats?admin_id=${getMyId()}&city=${encodeURIComponent(city)}`;
-    
-    if (startInput && endInput) {
-        const startTs = Math.floor(new Date(startInput + "T00:00:00").getTime() / 1000);
-        const endTs = Math.floor(new Date(endInput + "T23:59:59").getTime() / 1000);
-        url += `&start_ts=${startTs}&end_ts=${endTs}`;
-    }
-
-    fetch(url, { headers: { "ngrok-skip-browser-warning": "true" } })
-        .then(async res => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-        })
+    fetch(`/api/admin/stats?admin_id=${getMyId()}`)
+        .then(res => res.json())
         .then(data => {
-            let html = '';
-            if (data.custom) {
-                html = `
-                <div class="info-card" style="text-align:center; border: 1px solid var(--accent); margin-bottom: 15px;">
-                    <span style="color:var(--gray); font-size:12px;">ВЫБРАННЫЙ ПЕРИОД (${city})</span><br>
-                    <b style="color:var(--accent); font-size:24px;">${data.custom.rev} ₽</b><br>
-                    <span style="color:var(--gray); font-size:12px;">Заказов: ${data.custom.cnt} | Ср. чек: ${data.custom.aov} ₽</span>
-                </div>`;
-            } else {
-                html = `
+            document.getElementById('admin-workspace').innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <div class="info-card" style="margin:0; text-align:center;">
-                        <span style="color:var(--gray); font-size:12px;">Сегодня</span><br>
-                        <b style="color:var(--text); font-size:18px;">${data.day.rev} ₽</b><br>
-                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.day.aov} ₽</span>
-                    </div>
-                    <div class="info-card" style="margin:0; text-align:center;">
-                        <span style="color:var(--gray); font-size:12px;">Неделя</span><br>
-                        <b style="color:var(--text); font-size:18px;">${data.week.rev} ₽</b><br>
-                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.week.aov} ₽</span>
-                    </div>
+                    <div class="info-card" style="margin:0; text-align:center;"><span style="color:var(--gray); font-size:12px;">Сегодня</span><br><b style="color:var(--text); font-size:18px;">${data.day.rev} ₽</b></div>
+                    <div class="info-card" style="margin:0; text-align:center;"><span style="color:var(--gray); font-size:12px;">Неделя</span><br><b style="color:var(--text); font-size:18px;">${data.week.rev} ₽</b></div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                    <div class="info-card" style="margin:0; text-align:center;">
-                        <span style="color:var(--gray); font-size:12px;">Месяц</span><br>
-                        <b style="color:var(--text); font-size:18px;">${data.month.rev} ₽</b><br>
-                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.month.aov} ₽</span>
-                    </div>
-                    <div class="info-card" style="margin:0; text-align:center;">
-                        <span style="color:var(--gray); font-size:12px;">Год</span><br>
-                        <b style="color:var(--text); font-size:18px;">${data.year.rev} ₽</b><br>
-                        <span style="color:var(--accent); font-size:11px;">Ср. чек: ${data.year.aov} ₽</span>
-                    </div>
-                </div>
-                <div class="info-card" style="text-align:center; border: 1px solid var(--accent);">
-                    <span style="color:var(--gray); font-size:12px;">ВСЕГО ВЫРУЧКИ (${city})</span><br>
+                <div class="info-card" style="text-align:center; border: 1px solid var(--border);">
+                    <span style="color:var(--gray); font-size:12px;">ВЫРУЧКА (ВСЕГО)</span><br>
                     <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
-                    <span style="color:var(--gray); font-size:12px;">Выполнено заказов: ${data.total.cnt}</span>
+                    <span style="color:var(--gray); font-size:12px;">Заказов: ${data.total.cnt}</span>
                 </div>`;
-            }
-            document.getElementById('admin-workspace').innerHTML = html;
-        })
-        .catch(err => tg.showAlert("❌ Ошибка загрузки статистики: " + err.message));
+        });
 }
 
 function loadAdminOrders() {
     setAdminTabActive('btn-adm-ord');
-    fetch(`/api/admin/orders?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
-        .then(async res => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-        })
+    fetch(`/api/admin/orders?admin_id=${getMyId()}`)
+        .then(res => res.json())
         .then(data => {
             let html = '';
             data.forEach(o => {
+                let statusColor = '#ffb84d'; 
+                let statusText = 'Ожидает';
+                if (o.status === 'completed') {
+                    statusColor = '#4caf50'; 
+                    statusText = 'Выполнен';
+                } else if (o.status === 'cancelled') {
+                    statusColor = 'var(--danger)'; 
+                    statusText = 'Отменен';
+                }
+
                 const isPending = o.status === 'pending';
-                const statusColor = isPending ? '#ffb84d' : (o.status === 'completed' ? '#4caf50' : 'var(--danger)');
-                const statusText = isPending ? 'Ожидает' : (o.status === 'completed' ? 'Выполнен' : 'Отменен');
-                let btns = isPending ? `
-                    <div style="display:flex; gap:10px; margin-top:10px;">
-                        <button onclick="changeOrderStatus('${o.id}', 'completed')" style="flex:1; background:#4caf50; color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">✅ Выполнить</button>
-                        <button onclick="changeOrderStatus('${o.id}', 'cancelled')" style="flex:1; background:var(--danger); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">❌ Отменить</button>
-                    </div>` : '';
+                
+                let itemsHtml = '';
+                if (o.items && o.items.length > 0) {
+                    itemsHtml = `<div style="font-size:13px; color:white; margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">${o.items.map(i => '• ' + i).join('<br>')}</div>`;
+                }
 
                 html += `
-                <div class="info-card" style="margin-bottom:15px; text-align:left; border-left: 3px solid ${statusColor};">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="margin:0; color:var(--text); font-size:16px;">Заказ #${o.id}</h3>
-                        <span style="color:${statusColor}; font-size:12px; font-weight:bold;">${statusText}</span>
+                <div class="info-card" style="margin-bottom:15px; text-align:left; border-left: 3px solid ${statusColor}; transform:none;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <h3 style="margin:0; font-size:16px; color:white;">Заказ #${o.id}</h3>
+                        <span style="font-size:12px; font-weight:bold; color:${statusColor}">${statusText}</span>
                     </div>
                     <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${o.user_name} (ID: ${o.user_id})</p>
-                    <p style="margin:4px 0; font-size:13px;"><b>Город:</b> ${o.city} | <b>Тел:</b> ${o.phone}</p>
-                    <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--accent); font-weight:bold;">${o.total}₽</span></p>
-                    <hr style="border-color:var(--gray); margin:10px 0;">
-                    <p style="margin:0; font-size:12px; color:var(--gray); line-height:1.6;">${o.items.join('<br>')}</p>
-                    ${btns}
+                    <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--text); font-weight:bold;">${o.total}₽</span></p>
+                    
+                    ${itemsHtml}
+                    
+                    ${isPending ? `<div style="display:flex; gap:10px; margin-top:10px;">
+                        <button onclick="changeOrderStatus('${o.id}', 'completed')" class="order-btn" style="flex:1; background:#4caf50; padding:10px;">✅</button>
+                        <button onclick="changeOrderStatus('${o.id}', 'cancelled')" class="order-btn" style="flex:1; background:var(--danger); padding:10px;">❌</button>
+                    </div>` : ''}
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>Заказов пока нет</p>';
-        })
-        .catch(err => tg.showAlert("❌ Ошибка загрузки заказов: " + err.message));
+            document.getElementById('admin-workspace').innerHTML = html || '<p style="text-align:center; color:var(--gray);">Заказов пока нет</p>';
+        });
 }
 
 function changeOrderStatus(oid, status) {
-    if(!confirm("Изменить статус заказа?")) return;
-    fetch(`/api/admin/orders/${oid}/status?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({status: status})
-    }).then(() => loadAdminOrders());
+    if(confirm("Изменить статус заказа?")) fetch(`/api/admin/orders/${oid}/status?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({status}) }).then(() => loadAdminOrders());
 }
 
 function loadAdminUsers() {
     setAdminTabActive('btn-adm-usr');
-    fetch(`/api/admin/users?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    fetch(`/api/admin/users?admin_id=${getMyId()}`)
         .then(res => res.json())
         .then(data => {
             let html = '';
             data.forEach(u => {
-                html += `
-                <div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="text-align:left;">
-                        <b style="color:var(--text);">${u.name}</b><br>
-                        <span style="color:var(--gray); font-size:12px;">ID: ${u.id}</span>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="color:var(--accent); font-weight:bold;">${u.orders}</span><br>
-                        <span style="color:var(--gray); font-size:11px;">заказов</span>
-                    </div>
+                html += `<div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; transform:none;">
+                    <div><b style="color:white;">${u.name}</b><br><span style="color:var(--gray); font-size:12px;">ID: ${u.id}</span></div>
+                    <div style="text-align:right;"><span style="color:var(--text); font-weight:bold; font-size:16px;">${u.orders}</span><br><span style="color:var(--gray); font-size:11px;">заказов</span></div>
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>База пуста</p>';
+            document.getElementById('admin-workspace').innerHTML = html;
         });
 }
 
-/* --- КОНКУРСЫ В АДМИНКЕ --- */
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
-    fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, { headers: { "ngrok-skip-browser-warning": "true" } })
+    fetch(`/api/admin/giveaways?admin_id=${getMyId()}`)
         .then(res => res.json())
         .then(data => {
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="document.getElementById('adm-gw-modal').classList.remove('hidden')">🎁 Создать конкурс</button>`;
             data.forEach(g => {
-                const statusText = g.is_active ? '<span style="color:#4caf50;">Активен</span>' : '<span style="color:var(--gray);">Завершен</span>';
-                const rollBtn = g.is_active ? `<button onclick="rollGiveaway(${g.id})" style="width:100%; margin-top:10px; background:var(--accent); color:white; border:none; padding:8px; border-radius:8px; cursor:pointer;">🎲 Подвести итоги</button>` : '';
-                
-                let dateRangeText = "За всё время";
-                if (g.order_start > 0 || g.order_end < 2000000000) {
-                    const stStr = g.order_start > 0 ? new Date(g.order_start * 1000).toLocaleDateString('ru-RU') : '...';
-                    const enStr = g.order_end < 2000000000 ? new Date(g.order_end * 1000).toLocaleDateString('ru-RU') : '...';
-                    dateRangeText = `с ${stStr} по ${enStr}`;
-                }
-
                 html += `
-                <div class="info-card" style="margin-bottom:10px; text-align:left;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <b style="color:var(--text);">Конкурс #${g.id}</b>
-                        ${statusText}
+                <div class="info-card" style="margin-bottom:10px; transform:none;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <b style="color:white;">Конкурс #${g.id}</b>
+                        ${g.is_active ? '<span style="color:#4caf50; font-weight:bold;">Активен</span>' : '<span style="color:var(--gray); font-weight:bold;">Завершен</span>'}
                     </div>
                     <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${g.text}</p>
-                    
-                    <div style="font-size:11px; color:var(--gray); background:#140a0a; padding:6px; border-radius:6px; margin-bottom:8px;">
-                        Мест: <b>${g.winners_count}</b> | Заказ от: <b>${g.min_order} ₽</b><br>
-                        Период заказов: <b>${dateRangeText}</b><br>
-                        Итоги: <b>${g.end_date || 'Не указано'}</b>
-                    </div>
-                    
-                    <span style="font-size:13px; color:var(--accent);">Участников: <b>${g.parts}</b></span>
-                    ${rollBtn}
+                    <span style="font-size:13px; color:var(--text);">Участников: <b>${g.parts}</b></span>
+                    ${g.is_active ? `<button onclick="rollGiveaway(${g.id})" class="outline-btn" style="margin-top:10px;">🎲 Подвести итоги</button>` : ''}
                 </div>`;
             });
-            document.getElementById('admin-workspace').innerHTML = html || '<p>Конкурсов пока нет</p>';
-        })
-        .catch(err => tg.showAlert("Ошибка загрузки: " + err.message));
+            document.getElementById('admin-workspace').innerHTML = html;
+        });
 }
 
 function submitNewGiveaway() {
     const text = document.getElementById('gw-text').value.trim();
-    const winnersCount = parseInt(document.getElementById('gw-winners').value) || 1;
-    const minOrder = parseFloat(document.getElementById('gw-min-order').value) || 0;
-    const endDate = document.getElementById('gw-end-date').value.trim() || 'Не указана';
-    
-    const startDateInput = document.getElementById('gw-order-start').value;
-    const endDateInput = document.getElementById('gw-order-end').value;
-
-    let orderStartUnix = 0;
-    let orderEndUnix = 2000000000;
-
-    if (startDateInput) {
-        orderStartUnix = Math.floor(new Date(startDateInput + "T00:00:00").getTime() / 1000);
-    }
-    if (endDateInput) {
-        orderEndUnix = Math.floor(new Date(endDateInput + "T23:59:59").getTime() / 1000);
-    }
-    
-    if(!text) return tg.showAlert("Введите текст/описание конкурса!");
+    if(!text) return tg.showAlert("Введите текст конкурса!");
     
     fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, {
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({
-            text: text,
-            winners_count: winnersCount,
-            min_order: minOrder,
-            end_date: endDate,
-            order_start: orderStartUnix,
-            order_end: orderEndUnix
-        })
-    })
-    .then(() => {
-        closeAdmModal('adm-gw-modal');
-        document.getElementById('gw-text').value = '';
-        document.getElementById('gw-winners').value = '1';
-        document.getElementById('gw-min-order').value = '';
-        document.getElementById('gw-end-date').value = '';
-        document.getElementById('gw-order-start').value = '';
-        document.getElementById('gw-order-end').value = '';
-        
-        loadAdminGiveaways();
-        tg.showAlert("✅ Конкурс успешно создан и запущен!");
-    })
-    .catch(err => tg.showAlert("❌ Ошибка сервера: " + err.message));
+        method: 'POST', headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ text, winners_count: parseInt(document.getElementById('gw-winners').value)||1, min_order: parseFloat(document.getElementById('gw-min-order').value)||0, end_date: document.getElementById('gw-end-date').value||'', order_start: 0, order_end: 2000000000 })
+    }).then(() => { closeAdmModal('adm-gw-modal'); loadAdminGiveaways(); });
 }
 
 function rollGiveaway(id) {
-    if(!confirm("Завершить этот конкурс и выбрать победителей?")) return;
-    
-    fetch(`/api/admin/giveaways/${id}/roll?admin_id=${getMyId()}`, { method: 'POST' })
-    .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    })
-    .then((data) => {
-        const names = data.winner_names.join(", ");
-        tg.showAlert(`🎉 Победители: ${names}! Отчет отправлен в ЛС.`);
+    if(confirm("Завершить конкурс?")) fetch(`/api/admin/giveaways/${id}/roll?admin_id=${getMyId()}`, { method: 'POST' }).then(async res => {
+        const data = await res.json();
+        tg.showAlert(`🎉 Победители: ${data.winner_names.join(", ")}`);
         loadAdminGiveaways();
-    })
-    .catch(err => {
-        tg.showAlert("❌ Ошибка: В розыгрыше нет участников!");
-    });
+    }).catch(() => tg.showAlert("❌ Ошибка: В розыгрыше нет участников!"));
 }
 
 const admBtn = document.getElementById('admin-btn');
 if (admBtn) { admBtn.addEventListener('click', () => loadAdminProducts()); }
+
+function tiltCard(e, card) {
+    const rect = card.getBoundingClientRect();
+    let clientX = e.clientX, clientY = e.clientY;
+    if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+    
+    const tiltX = (clientY - rect.top - (rect.height / 2)) / 10;
+    const tiltY = ((rect.width / 2) - (clientX - rect.left)) / 10;
+    
+    card.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(1.02, 1.02, 1.02)`;
+}
+
+function resetCard(card) {
+    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+    card.style.transition = `transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)`;
+    setTimeout(() => { card.style.transition = 'transform 0.1s ease, box-shadow 0.3s ease, border-color 0.3s ease'; }, 400);
+}
+
+function installApp() {
+    if (tg.addToHomeScreen) {
+        tg.addToHomeScreen();
+    } else {
+        tg.showAlert("Ваша версия Telegram не поддерживает быструю установку на рабочий стол. Пожалуйста, обновите приложение.");
+    }
+}
