@@ -26,37 +26,58 @@
     </div>
 
     <nav class="tab-bar">
-        <button class="tab-btn active" onclick="showTab('catalog', this)"><i class="fa-solid fa-box-open"></i></button>
+        <button class="tab-btn active" onclick="showTab('catalog', this)">
+            <i class="fa-solid fa-layer-group"></i>
+            <span class="tab-label">Каталог</span>
+        </button>
         <button class="tab-btn" onclick="showTab('cart', this)">
             <i class="fa-solid fa-cart-shopping"></i>
+            <span class="tab-label">Корзина</span>
             <span id="badge" class="hidden">0</span>
         </button>
-        <button class="tab-btn" onclick="showTab('profile', this)"><i class="fa-solid fa-user"></i></button>
-        <button class="tab-btn hidden" id="admin-btn" onclick="showTab('admin', this)"><i class="fa-solid fa-gear"></i></button>
+        <button class="tab-btn" onclick="showTab('profile', this)">
+            <i class="fa-solid fa-user"></i>
+            <span class="tab-label">Профиль</span>
+        </button>
+        <button class="tab-btn hidden" id="admin-btn" onclick="showTab('admin', this)">
+            <i class="fa-solid fa-sliders"></i>
+            <span class="tab-label">Админ</span>
+        </button>
     </nav>
 
+    <!-- КАТАЛОГ -->
     <section id="catalog-tab" class="tab-content active">
+        
+        <!-- СТРОКА ПОИСКА (КАК НА МАРКЕТПЛЕЙСАХ) -->
+        <div class="search-container">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="search-input" class="search-input" placeholder="Поиск по товарам..." oninput="handleSearch()">
+        </div>
+
+        <!-- КАТЕГОРИИ -->
         <div class="cat-nav">
             <button class="c-btn active" onclick="filterCat('Все', this)">Все</button>
             <button class="c-btn" onclick="filterCat('Одноразки', this)">Одноразки</button>
             <button class="c-btn" onclick="filterCat('Жидкости', this)">Жидкости</button>
-            <button class="c-btn" onclick="filterCat('Устройства', this)">Устройства</button>
+            <button class="c-btn" onclick="filterCat('Устройства', this)">Девайсы</button>
             <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
             <button class="c-btn" onclick="filterCat('Снюс', this)">Снюс</button>
-            <button class="c-btn" onclick="filterCat('Ватки', this)">Ватки</button>
         </div>
+
         <div id="product-grid" class="grid"></div>
     </section>
 
+    <!-- КОРЗИНА -->
     <section id="cart-tab" class="tab-content">
-        <h2 class="page-title">Ваша Корзина</h2>
-        <div id="cart-list" class="grid"></div>
+        <h2 class="page-title">Корзина</h2>
+        <div id="cart-list" class="grid" style="display: flex; flex-direction: column; gap: 10px;"></div>
         <div class="cart-footer">
             <div class="total-row"><span>Итого:</span><h3 id="total-price">0 ₽</h3></div>
             <button class="order-btn" onclick="openCheckout()">Оформить заказ</button>
         </div>
     </section>
 
+    <!-- ОФОРМЛЕНИЕ ЗАКАЗА -->
     <section id="checkout-tab" class="tab-content">
         <h2 class="page-title">Оформление</h2>
         <div class="info-card" style="margin-bottom: 20px;">
@@ -66,7 +87,7 @@
             </div>
             <div class="form-group">
                 <label>Город (выбран в каталоге):</label>
-                <div class="form-input" style="background: #0a0505; color: var(--gray); border-color: #1f0f0f; cursor: not-allowed;">
+                <div class="form-input" style="background: var(--dark-bg); color: var(--gray); border-color: var(--border); cursor: not-allowed;">
                     <span id="co-city-display">Не выбран</span>
                 </div>
             </div>
@@ -91,13 +112,14 @@
             </div>
             <div class="form-group checkbox-group" id="bonus-group">
                 <input type="checkbox" id="co-bonuses">
-                <label for="co-bonuses">Списать бонусы (<span id="co-bonus-count" style="color:#e60000; font-weight:bold;">0</span>)</label>
+                <label for="co-bonuses">Списать бонусы (<span id="co-bonus-count" style="color:var(--accent); font-weight:bold;">0</span>)</label>
             </div>
             <button class="order-btn" onclick="submitCheckout()" style="margin-top: 20px;">Подтвердить заказ</button>
-            <button class="c-btn" onclick="backToCart()" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #1f0f0f; color: #a09090;">Назад в корзину</button>
+            <button class="c-btn" onclick="backToCart()" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border); color: var(--gray);">Назад в корзину</button>
         </div>
     </section>
 
+    <!-- ПРОФИЛЬ -->
     <section id="profile-tab" class="tab-content">
         <h2 class="page-title">Мой Кабинет</h2>
         <div class="profile-main-card">
@@ -110,7 +132,7 @@
                     <h3 id="u-name">Загрузка...</h3>
                     <p id="u-id">ID: ---</p>
                     <div class="vip-badge" id="u-vip">---</div>
-                    <p style="margin-top: 6px; color: #a09090; font-size: 12px; cursor: pointer;" onclick="openCityModal()">
+                    <p style="margin-top: 6px; color: var(--gray); font-size: 12px; cursor: pointer;" onclick="openCityModal()">
                         📍 <span id="u-city-display">Город не выбран</span> <i class="fa-solid fa-pen" style="margin-left:5px; color:var(--accent);"></i>
                     </p>
                 </div>
@@ -134,14 +156,14 @@
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px;">
                 Приглашайте друзей и получайте <b>10 баллов</b> за регистрацию и <b>50 баллов</b> за их первый заказ!
             </p>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #1f0f0f;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
                 <span style="color: white; font-size: 14px;">Вы пригласили:</span>
                 <b id="u-refs" style="font-size: 18px; color: var(--accent);">0 чел.</b>
             </div>
             <label style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Ваша ссылка для приглашения:</label>
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="u-ref-link" class="form-input" readonly style="color: #e60000; font-size: 13px; flex: 1;">
-                <button onclick="copyRefLink()" style="background: var(--accent); border: none; border-radius: 12px; width: 45px; color: white; cursor: pointer; transition: 0.2s;"><i class="fa-regular fa-copy"></i></button>
+                <input type="text" id="u-ref-link" class="form-input" readonly style="color: var(--accent); font-size: 13px; flex: 1;">
+                <button onclick="copyRefLink()" class="icon-btn"><i class="fa-regular fa-copy"></i></button>
             </div>
         </div>
 
@@ -150,18 +172,19 @@
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px; margin-bottom: 15px;">
                 Установите магазин на рабочий стол телефона для быстрого доступа в 1 клик!
             </p>
-            <button onclick="installApp()" style="width: 100%; background: #140a0a; border: 1px solid var(--accent); color: white; padding: 14px; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s;">
+            <button onclick="installApp()" class="outline-btn">
                 📲 Добавить на рабочий стол
             </button>
         </div>
 
         <h3 class="sub-title">🎁 Актуальные розыгрыши</h3>
-        <a href="#" onclick="openClientGiveaways(); return false;" style="display: block; border-radius: 16px; overflow: hidden; border: 1px solid #2a1515; margin-bottom: 20px; transition: transform 0.2s;">
-            <img src="contest.png" alt="Конкурсы" style="width: 100%; display: block; object-fit: cover;">
-        </a>
+        <button onclick="openClientGiveaways()" class="order-btn" style="margin-bottom: 20px;">
+            🎉 Участвовать в конкурсах
+        </button>
 
     </section>
 
+    <!-- АДМИНКА -->
     <section id="admin-tab" class="tab-content">
         <h2 class="page-title">⚙️ Управление</h2>
         <div class="cat-nav" style="margin-bottom: 20px;">
@@ -192,51 +215,42 @@
         </div>
     </section>
 
-    <!-- МОДАЛКИ -->
+    <!-- МОДАЛКИ ВЫБОРА ГОРОДА -->
     <div id="city-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:white; text-shadow:none; margin-bottom: 5px;">Выберите город</h3>
             <p style="color:var(--gray); font-size: 12px; margin-bottom: 20px;">Пока доступны только два города</p>
-            <div class="flavor-grid">
-                <button class="flavor-btn" onclick="selectCity('Междуреченск')">Междуреченск</button>
-                <button class="flavor-btn" onclick="selectCity('Мыски')">Мыски</button>
-                <button class="flavor-btn" disabled style="opacity:0.4;">ГРЭС (Мыски) — Скоро</button>
-                <button class="flavor-btn" disabled style="opacity:0.4;">Новокузнецк — Скоро</button>
-                <button class="flavor-btn" disabled style="opacity:0.4;">Осинники — Скоро</button>
-                <button class="flavor-btn" disabled style="opacity:0.4;">Калтан — Скоро</button>
-                <button class="flavor-btn" disabled style="opacity:0.4;">Прокопьевск — Скоро</button>
+            <div class="flavor-pills-grid" style="display:flex; flex-direction:column; gap:10px;">
+                <button class="flavor-pill" onclick="selectCity('Междуреченск')">Междуреченск</button>
+                <button class="flavor-pill" onclick="selectCity('Мыски')">Мыски</button>
+                <button class="flavor-pill" disabled style="opacity:0.4;">ГРЭС (Мыски) — Скоро</button>
+                <button class="flavor-pill" disabled style="opacity:0.4;">Новокузнецк — Скоро</button>
             </div>
         </div>
     </div>
 
+    <!-- ИДЕАЛЬНАЯ МОДАЛКА ТОВАРА -->
     <div id="product-modal" class="modal-overlay hidden">
         <div class="modal-content product-details-modal">
-            <button class="close-btn top-close" onclick="closeProductModal()">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
             <div id="pm-image-container"></div>
+            <h3 id="pm-title">Название</h3>
+            <p id="pm-price">0 ₽</p>
             
-            <div style="padding: 0 20px;">
-                <h3 id="pm-title" style="color: white; font-size: 22px; font-weight: 800; margin: 0 0 5px 0;">Название товара</h3>
-                <p id="pm-price" style="color: var(--accent); font-size: 20px; font-weight: bold; margin: 0 0 15px 0;">0 ₽</p>
-            </div>
-            
-            <div id="pm-flavors-container" class="hidden" style="margin-bottom: 15px;">
+            <div id="pm-flavors-container" class="hidden">
                 <div id="pm-flavor-list" class="flavor-pills-grid"></div>
             </div>
 
-            <div style="padding: 0 20px; margin-bottom: 5px;">
-                <p style="color: white; font-weight: bold; font-size: 16px; margin: 0 0 8px 0;">Описание товара</p>
-                <p id="pm-desc" class="pm-description" style="margin: 0;"></p>
-                <p id="pm-stock-info" style="font-size: 13px; margin-top: 10px; font-weight: bold;"></p>
+            <div id="pm-desc-container">
+                <p id="pm-desc" class="pm-description"></p>
             </div>
+            
+            <div id="pm-stock-info"></div>
 
-            <div class="pm-footer">
-                <button id="pm-add-btn" class="order-btn pm-add">Добавить в корзину</button>
-            </div>
+            <button id="pm-add-btn">Добавить в корзину</button>
         </div>
     </div>
 
+    <!-- ОКНА АДМИНКИ -->
     <div id="adm-add-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">➕ Новый товар</h3>
@@ -258,7 +272,7 @@
             <label style="text-align:left; color:var(--gray); font-size:12px; display:block; margin-bottom:5px;">Фото товара (необязательно):</label>
             <input type="file" id="add-img" accept="image/*" class="form-input" style="margin-bottom:15px; padding: 8px;">
             <button class="order-btn" onclick="submitNewProduct()">Добавить</button>
-            <button class="close-btn" onclick="closeAdmModal('adm-add-modal')">Отмена</button>
+            <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-add-modal')">Отмена</button>
         </div>
     </div>
 
@@ -270,7 +284,7 @@
             <label style="text-align:left; color:var(--gray); font-size:12px;">Новое описание:</label>
             <textarea id="edit-desc" class="form-input" rows="4" style="margin-bottom:15px; resize:none;"></textarea>
             <button class="order-btn" onclick="saveProductEdit()">Сохранить</button>
-            <button class="close-btn" onclick="closeAdmModal('adm-edit-modal')">Отмена</button>
+            <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-edit-modal')">Отмена</button>
         </div>
     </div>
 
@@ -284,7 +298,7 @@
                 <button class="order-btn" style="width:auto; padding:0 15px;" onclick="addFlavorRow()">+</button>
             </div>
             <button class="order-btn" onclick="saveFlavors()">Сохранить</button>
-            <button class="close-btn" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
+            <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-flavors-modal')">Закрыть</button>
         </div>
     </div>
 
@@ -304,15 +318,13 @@
             <input type="text" id="gw-end-date" class="form-input" placeholder="Дата подведения итогов (Текст)" style="margin-bottom:15px;">
             
             <button class="order-btn" onclick="submitNewGiveaway()">Создать и запустить</button>
-            <button class="close-btn" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
+            <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
         </div>
     </div>
 
     <div id="client-gw-modal" class="modal-overlay hidden">
         <div class="modal-content" style="padding-top: 40px;">
-            <button class="close-btn top-close" onclick="closeAdmModal('client-gw-modal')">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button class="top-close" onclick="closeAdmModal('client-gw-modal')">✕</button>
             <h3 style="color:var(--accent); margin-top:0;">🎁 Активные конкурсы</h3>
             <div id="client-gw-list" style="text-align: left; max-height: 60vh; overflow-y: auto; margin-bottom: 15px;">
                 <p style="text-align:center; color:var(--gray);">Загрузка...</p>
