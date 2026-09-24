@@ -149,6 +149,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .flavor-pill.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
 .city-option { display: flex; align-items: center; justify-content: flex-start; gap: 11px; }
 .city-option i { color: var(--accent); }
+.contest-image-button { display: block; width: 100%; margin: 0 0 20px; padding: 0; overflow: hidden; border: 1px solid rgba(255,72,96,.24); border-radius: 18px; background: linear-gradient(135deg, #351520, #1b1117); box-shadow: 0 12px 30px rgba(0,0,0,.22); cursor: pointer; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.contest-image-button img { display: block; width: 100%; height: auto; }
+.contest-image-button:hover { transform: translateY(-2px); border-color: rgba(255,72,96,.55); box-shadow: 0 16px 34px rgba(177,24,51,.22); }
+.contest-image-button:active { transform: scale(.99); }
 .top-close { position: absolute !important; top: 14px !important; right: 14px !important; z-index: 2 !important; display: grid !important; place-items: center !important; width: 36px !important; height: 36px !important; padding: 0 !important; border: 1px solid rgba(255,255,255,.18) !important; border-radius: 50% !important; background: rgba(0,0,0,.48) !important; color: white !important; cursor: pointer !important; }
 
 @media (min-width: 620px) {
