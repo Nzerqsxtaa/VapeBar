@@ -2,8 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VAPE BAR 2.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#10090d">
+    <meta name="description" content="VapeBar — каталог, бонусы и оформление заказа в Telegram.">
+    <title>VapeBar — магазин</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -15,6 +17,9 @@
             <span class="word2">BAR</span>
             <span class="version">2.0</span>
         </h1>
+        <div class="connection-status" id="connection-status" role="status" aria-live="polite">
+            <span class="connection-dot"></span><span id="connection-label">Подключаемся</span>
+        </div>
     </div>
 
     <!-- ПОИСК -->
@@ -45,6 +50,17 @@
 
     <!-- КАТАЛОГ -->
     <section id="catalog-tab" class="tab-content active">
+        <div class="catalog-hero">
+            <div class="hero-copy">
+                <span class="eyebrow">VAPE BAR · 2.0</span>
+                <h2>Твой вкус.<br><em>Твой ритм.</em></h2>
+                <p>Выбирай любимое — мы позаботимся об остальном.</p>
+                <button class="city-select" onclick="openCityModal()" aria-label="Выбрать город">
+                    <i class="fa-solid fa-location-dot"></i><span id="catalog-city">Выберите город</span><i class="fa-solid fa-chevron-down"></i>
+                </button>
+            </div>
+            <div class="hero-orb" aria-hidden="true"><span>VB</span></div>
+        </div>
         <div class="cat-nav">
             <button class="c-btn active" onclick="filterCat('Все', this)">Все</button>
             <button class="c-btn" onclick="filterCat('Одноразки', this)">Одноразки</button>
@@ -53,7 +69,7 @@
             <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
             <button class="c-btn" onclick="filterCat('Снюс', this)">Снюс</button>
         </div>
-        <div id="product-grid" class="grid"></div>
+        <div id="product-grid" class="grid" aria-live="polite"></div>
     </section>
 
     <!-- КОРЗИНА -->
@@ -194,8 +210,8 @@
             <h3 style="color:white; margin-top:0; margin-bottom: 5px;">Выберите город</h3>
             <p style="color:var(--gray); font-size: 13px; margin-bottom: 20px;">В каком городе вы находитесь?</p>
             <div class="flavor-pills-grid" style="display:flex; flex-direction:column; gap:10px;">
-                <button class="flavor-pill" onclick="selectCity('Междуреченск')">Междуреченск</button>
-                <button class="flavor-pill" onclick="selectCity('Мыски')">Мыски</button>
+                <button class="flavor-pill city-option" onclick="selectCity('Междуреченск')"><i class="fa-solid fa-location-dot"></i> Междуреченск</button>
+                <button class="flavor-pill city-option" onclick="selectCity('Мыски')"><i class="fa-solid fa-location-dot"></i> Мыски</button>
             </div>
             <button class="outline-btn" style="margin-top: 15px;" onclick="closeAdmModal('city-modal')">Закрыть</button>
         </div>
@@ -204,6 +220,7 @@
     <!-- ИДЕАЛЬНАЯ МОДАЛКА ТОВАРА -->
     <div id="product-modal" class="modal-overlay hidden">
         <div class="modal-content product-details-modal">
+            <button class="top-close" onclick="closeProductModal()" aria-label="Закрыть">✕</button>
             <div id="pm-image-container"></div>
             
             <h3 id="pm-title">Название</h3>
