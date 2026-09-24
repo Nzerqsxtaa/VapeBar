@@ -1,6 +1,14 @@
-let tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+const nativeTelegram = window.Telegram?.WebApp;
+const tg = nativeTelegram || {
+    initDataUnsafe: {},
+    HapticFeedback: { impactOccurred() {}, selectionChanged() {} },
+    ready() {}, expand() {}, close() {},
+    showAlert(message) { window.alert(message); },
+    addToHomeScreen: null
+};
+// Оставляем запросы относительными: Vercel проксирует /api на Netrix.
+const API_BASE_URL = '';
+try { tg.ready(); tg.expand(); } catch (error) { console.warn('Telegram WebApp API недоступен:', error); }
 
 let products = [];
 let cart = [];
@@ -9,8 +17,57 @@ let currentSelectedFlavor = null;
 let userBonuses = 0; 
 let currentCategory = 'Все';
 let searchQuery = '';
+let selectedCity = '';
+try { selectedCity = localStorage.getItem('vapebar_city') || ''; } catch {}
 
-window.onload = () => {
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+
+function setConnectionStatus(state, label) {
+    const badge = document.getElementById('connection-status');
+    const text = document.getElementById('connection-label');
+    if (!badge || !text) return;
+    badge.classList.toggle('online', state === 'online');
+    badge.classList.toggle('offline', state === 'offline');
+    text.textContent = label;
+}
+
+function apiUrl(path) { return `${API_BASE_URL}${path}`; }
+
+async function apiFetch(path, options = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+        const headers = { ...(options.headers || {}) };
+        if (tg.initData) headers['X-Telegram-Init-Data'] = tg.initData;
+        const response = await fetch(apiUrl(path), { ...options, headers, signal: controller.signal });
+        const raw = await response.text();
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch { data = { detail: raw }; }
+        if (!response.ok) {
+            const detail = data.detail || data.message || `Ошибка сервера (${response.status})`;
+            throw new Error(detail);
+        }
+        setConnectionStatus('online', 'На связи');
+        return data;
+    } catch (error) {
+        if (error.name === 'AbortError') throw new Error('Сервер не ответил за 12 секунд. Попробуйте ещё раз.');
+        if (error instanceof TypeError) throw new Error('Не удалось связаться с API. Проверьте интернет и доступность сайта на Vercel и сервера на Netrix.');
+        throw error;
+    } finally { clearTimeout(timer); }
+}
+
+function jsonOptions(data, method = 'POST') {
+    return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
+}
+
+function persistCity() {
+    try { localStorage.setItem('vapebar_city', selectedCity); }
+    catch (error) { console.warn('Не удалось сохранить город на устройстве:', error); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlUid = urlParams.get('uid');
     let urlName = urlParams.get('name') || "Гость";
@@ -38,22 +95,60 @@ window.onload = () => {
     loadCart(); 
     updateCartUI();
     loadProfileData();
-    
-    fetch(`/api/catalog`)
-        .then(response => response.json())
-        .then(data => { products = data; renderProducts(); })
-        .catch(error => console.error("Ошибка загрузки каталога:", error));
-};
+    updateCityLabels();
+    loadCatalog();
+    if (!selectedCity) openCityModal();
+    apiFetch('/api/health').catch(error => {
+        setConnectionStatus('offline', 'Нет связи');
+        console.error('Ошибка проверки соединения:', error);
+    });
+});
 
-function saveCart() { localStorage.setItem('vapelab_cart', JSON.stringify(cart)); }
+function updateCityLabels() {
+    const label = selectedCity || 'Выберите город';
+    const catalogCity = document.getElementById('catalog-city');
+    const profileCity = document.getElementById('u-city-display');
+    const checkoutCity = document.getElementById('co-city-display');
+    if (catalogCity) catalogCity.textContent = label;
+    if (profileCity) profileCity.textContent = selectedCity || 'Город не выбран';
+    if (checkoutCity) checkoutCity.textContent = selectedCity || 'Не выбран';
+}
+
+async function loadCatalog() {
+    const grid = document.getElementById('product-grid');
+    if (!selectedCity) {
+        products = [];
+        if (grid) grid.innerHTML = '<div class="info-card" style="grid-column:1/-1;text-align:center;color:var(--gray)">Сначала выберите город — покажем ассортимент и остатки рядом с вами.</div>';
+        return;
+    }
+    if (grid) grid.innerHTML = '<div class="info-card" style="grid-column:1/-1;text-align:center;color:var(--gray)">Загружаем каталог…</div>';
+    try {
+        products = await apiFetch(`/api/catalog?city=${encodeURIComponent(selectedCity)}`);
+        renderProducts();
+    } catch (error) {
+        setConnectionStatus('offline', 'Нет связи');
+        if (grid) grid.innerHTML = `<div class="info-card" style="grid-column:1/-1;text-align:center"><b>Каталог пока недоступен</b><p style="color:var(--gray);font-size:13px">${escapeHtml(error.message)}</p><button class="outline-btn" onclick="loadCatalog()">Попробовать снова</button></div>`;
+    }
+}
+
+function saveCart() {
+    try { localStorage.setItem('vapelab_cart', JSON.stringify(cart)); }
+    catch (error) { console.warn('Не удалось сохранить корзину на устройстве:', error); }
+}
 function loadCart() {
-    try { let saved = localStorage.getItem('vapelab_cart'); if (saved) cart = JSON.parse(saved); } 
+    try {
+        const saved = localStorage.getItem('vapelab_cart');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) cart = parsed.filter(item => item && Number.isFinite(Number(item.id)) && Number.isFinite(Number(item.price)));
+        }
+    }
     catch (e) {}
 }
 
 function clearCart() {
     cart = []; saveCart();
-    tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
+    try { tg.HapticFeedback?.impactOccurred('medium'); } catch {} updateCartUI();
 }
 
 function showTab(tabId, btn) {
@@ -61,6 +156,20 @@ function showTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(tabId + '-tab').classList.add('active');
     if(btn) btn.classList.add('active');
+    const search = document.getElementById('search-block');
+    if (search) search.classList.toggle('hidden', tabId !== 'catalog');
+}
+
+function openCityModal() { document.getElementById('city-modal')?.classList.remove('hidden'); }
+
+async function selectCity(city) {
+    selectedCity = city;
+    persistCity();
+    updateCityLabels();
+    closeAdmModal('city-modal');
+    await loadCatalog();
+    const userId = getMyId();
+    if (userId) apiFetch('/api/profile/city', jsonOptions({ user_id: userId, city })).catch(error => console.warn('Не удалось сохранить город профиля:', error));
 }
 
 function filterCat(cat, btn) {
@@ -87,7 +196,7 @@ function renderProducts() {
     }
     
     if (searchQuery !== '') {
-        items = items.filter(p => p.name.toLowerCase().includes(searchQuery) || (p.description && p.description.toLowerCase().includes(searchQuery)));
+        items = items.filter(p => String(p.name || '').toLowerCase().includes(searchQuery) || (p.description && p.description.toLowerCase().includes(searchQuery)));
     }
     
     if (items.length === 0) {
@@ -96,24 +205,24 @@ function renderProducts() {
     }
 
     items.forEach(p => {
+        const safeName = escapeHtml(p.name);
         const imageHTML = p.img || p.image_url
-            ? `<img src="${p.img || p.image_url}" alt="${p.name}" class="product-img">` 
+            ? `<img src="${escapeHtml(p.img || p.image_url)}" alt="${safeName}" class="product-img" loading="lazy">` 
             : `<div class="product-placeholder">💨</div>`;
 
         grid.innerHTML += `
             <div class="product-card" onclick="openProductModal(${p.id})" onmousemove="tiltCard(event, this)" onmouseleave="resetCard(this)">
                 <div class="card-image-wrapper">
                     <div class="card-bg-waves"></div>
-                    <div class="heart-icon"><i class="fa-solid fa-heart"></i></div>
                     ${imageHTML}
                 </div>
                 <div class="card-info">
                     <div>
-                        <h4 class="card-title">${p.name}</h4>
-                        <p class="card-specs">${p.category}</p>
+                        <h4 class="card-title">${safeName}</h4>
+                        <p class="card-specs">${escapeHtml(p.category)}${p.stock > 0 ? ` · ${p.stock} шт.` : ''}</p>
                     </div>
                     <div class="card-price-row">
-                        <div class="card-price">${p.price} <span>₽</span></div>
+                        <div class="card-price">${Number(p.price).toLocaleString('ru-RU')} <span>₽</span></div>
                     </div>
                 </div>
             </div>`;
@@ -121,7 +230,7 @@ function renderProducts() {
 }
 
 function openProductModal(id) {
-    const p = products.find(i => i.id === id);
+    const p = products.find(i => Number(i.id) === Number(id));
     if (!p) return;
     currentSelectedProductId = id;
     currentSelectedFlavor = null;
@@ -131,21 +240,21 @@ function openProductModal(id) {
     
     // Чистая вставка картинки без программного крестика
     if (imgUrl) {
-        imgContainer.innerHTML = `<img src="${imgUrl}" alt="${p.name}">`;
+        imgContainer.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.name)}">`;
     } else {
         imgContainer.innerHTML = `<div class="product-placeholder-large">💨</div>`;
     }
     
-    document.getElementById('pm-title').innerText = p.name;
-    document.getElementById('pm-price').innerText = p.price + ' ₽';
+    document.getElementById('pm-title').textContent = p.name;
+    document.getElementById('pm-price').textContent = Number(p.price).toLocaleString('ru-RU') + ' ₽';
     
     // Чистое описание без повторного заголовка "Описание товара"
-    document.getElementById('pm-desc').innerHTML = `<span style="color: var(--gray); line-height: 1.4; font-size: 14px;">${p.description || p.desc || 'Оригинальный товар из категории «' + p.category + '».'}</span>`;
+    document.getElementById('pm-desc').textContent = p.description || p.desc || `Оригинальный товар из категории «${p.category}».`;
 
     // Галочка наличия
     const stockInfo = document.getElementById('pm-stock-info');
     if (p.stock > 0) { 
-        stockInfo.innerHTML = `<span style="background: #25d366; color: #fff; padding: 2px 5px; border-radius: 4px; font-size: 10px; display: inline-flex; align-items: center; justify-content: center;">✔</span><span style="color:#25d366;">В наличии: ${p.stock} шт.</span>`; 
+        stockInfo.innerHTML = `<span aria-hidden="true">●</span><span>В наличии: ${p.stock} шт.</span>`; 
     } 
     else { 
         stockInfo.innerHTML = `❌ <span style="color:var(--danger);">Нет в наличии</span>`; 
@@ -160,7 +269,8 @@ function openProductModal(id) {
         p.flavors.forEach((flavor, index) => {
             const btn = document.createElement('button');
             btn.className = 'flavor-pill';
-            btn.innerText = flavor;
+            const count = p.flavor_stock?.[flavor];
+            btn.innerText = count === undefined ? flavor : `${flavor} · ${count} шт.`;
             btn.onclick = () => selectProductFlavor(flavor, btn);
             flavorList.appendChild(btn);
             if(index === 0) selectProductFlavor(flavor, btn); 
@@ -177,30 +287,31 @@ function openProductModal(id) {
     };
     
     document.getElementById('product-modal').classList.remove('hidden');
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    try { tg.HapticFeedback?.impactOccurred('light'); } catch {}
 }
 
 function selectProductFlavor(flavor, btnElement) {
     currentSelectedFlavor = flavor;
-    document.querySelectorAll('.flavor-pill').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#pm-flavor-list .flavor-pill').forEach(b => b.classList.remove('active'));
     if(btnElement) btnElement.classList.add('active');
-    if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    try { tg.HapticFeedback?.selectionChanged(); } catch {}
 }
 
 function closeProductModal() { document.getElementById('product-modal').classList.add('hidden'); }
 
 function addExactProductToCart(product, flavor) {
-    const currentCount = cart.filter(item => item.id === product.id).length;
-    if (product.stock !== undefined && currentCount >= product.stock) {
+    const currentCount = cart.filter(item => Number(item.id) === Number(product.id) && (item.flavor || null) === (flavor || null)).length;
+    const available = flavor ? Number(product.flavor_stock?.[flavor] ?? product.stock) : Number(product.stock);
+    if (Number.isFinite(available) && currentCount >= available) {
         tg.showAlert("Больше нет в наличии! 😢"); return;
     }
     const finalName = flavor ? `${product.name} (${flavor})` : product.name;
-    cart.push({ id: product.id, name: finalName, price: product.price });
-    saveCart(); tg.HapticFeedback.impactOccurred('medium'); updateCartUI();
+    cart.push({ id: product.id, name: finalName, flavor: flavor || null, price: product.price });
+    saveCart(); try { tg.HapticFeedback?.impactOccurred('medium'); } catch {} updateCartUI();
 }
 
 function removeFromCart(index) {
-    cart.splice(index, 1); saveCart(); tg.HapticFeedback.impactOccurred('light'); updateCartUI();
+    cart.splice(index, 1); saveCart(); try { tg.HapticFeedback?.impactOccurred('light'); } catch {} updateCartUI();
 }
 
 function updateCartUI() {
@@ -214,6 +325,15 @@ function updateCartUI() {
     list.innerHTML = '';
     let total = 0;
 
+    if (cart.length === 0) {
+        list.innerHTML = '<div class="info-card" style="text-align:center;padding:28px 18px"><div style="font-size:28px;margin-bottom:8px">🛍️</div><b>Корзина пока пуста</b><p style="margin:6px 0 0;color:var(--gray);font-size:12px">Загляните в каталог — там найдётся что-то по вкусу.</p></div>';
+        const checkoutButton = document.querySelector('#cart-tab .order-btn');
+        if (checkoutButton) checkoutButton.disabled = true;
+    } else {
+        const checkoutButton = document.querySelector('#cart-tab .order-btn');
+        if (checkoutButton) checkoutButton.disabled = false;
+    }
+
     if (cart.length > 0) {
         list.innerHTML += `<button onclick="clearCart()" style="background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 15px; font-weight: bold; cursor: pointer;">🗑 Очистить корзину</button>`;
     }
@@ -222,13 +342,13 @@ function updateCartUI() {
         total += item.price;
         const originalProduct = products.find(p => p.id === item.id);
         const imgUrl = originalProduct ? (originalProduct.img || originalProduct.image_url) : null;
-        const imageHTML = imgUrl ? `<img src="${imgUrl}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 10px; flex-shrink: 0;">` : `<div style="width: 60px; height: 60px; border-radius: 10px; background: #080a10; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">💨</div>`;
+        const imageHTML = imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(item.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 10px; flex-shrink: 0;">` : `<div style="width: 60px; height: 60px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">💨</div>`;
 
         list.innerHTML += `
             <div class="product-card" style="flex-direction: row; padding: 12px; align-items: center; transform: none; box-shadow: none; border: 1px solid var(--border); margin-bottom: 10px;">
                 ${imageHTML}
                 <div style="flex-grow: 1; padding-left: 12px; text-align: left; overflow: hidden;">
-                    <b style="font-size: 13px; color: #fff; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</b>
+                    <b style="font-size: 13px; color: #fff; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.name)}</b>
                     <span style="color: var(--danger); font-weight: 800; font-size: 15px; margin-top: 4px; display: inline-block;">${item.price} ₽</span>
                 </div>
                 <button style="background: transparent; border: none; color: var(--gray); cursor: pointer; font-size: 20px; margin-left: 10px;" onclick="removeFromCart(${index})"><i class="fa-solid fa-trash"></i></button>
@@ -246,6 +366,7 @@ function toggleDelivery() {
 
 function openCheckout() {
     if(cart.length === 0) return tg.showAlert("Сначала добавьте товары в корзину!");
+    if(!selectedCity) { openCityModal(); return tg.showAlert("Сначала выберите город."); }
     
     const bonuses = userBonuses;
     const total = cart.reduce((s,i)=>s+i.price, 0);
@@ -256,11 +377,11 @@ function openCheckout() {
     const bonusCheckbox = document.getElementById('co-bonuses');
     if (bonusCheckbox) {
         const parent = bonusCheckbox.parentElement;
+        bonusCheckbox.checked = false;
         if (maxSpendMultiple <= 0) {
             parent.style.display = 'none';
         } else {
             parent.style.display = 'flex'; 
-            bonusCheckbox.checked = false;
             
             const bonusCountDisplay = document.getElementById('co-bonus-count');
             if (bonusCountDisplay) bonusCountDisplay.innerText = maxSpendMultiple + " ₽";
@@ -281,21 +402,17 @@ function openCheckout() {
                 dynamicInput.style.padding = '4px 8px';
                 
                 parent.appendChild(dynamicInput);
-                
-                bonusCheckbox.addEventListener('change', function() {
-                    dynamicInput.style.display = this.checked ? 'inline-block' : 'none';
-                    if (this.checked) { dynamicInput.value = maxSpendMultiple; dynamicInput.focus(); } 
-                    else { dynamicInput.value = ''; }
-                });
-                
-                dynamicInput.addEventListener('change', function() {
-                    let val = parseInt(this.value) || 0;
-                    val = Math.floor(val / minStep) * minStep; 
-                    if (val > maxSpendMultiple) val = maxSpendMultiple;
-                    if (val < minStep) val = minStep;
-                    this.value = val;
-                });
             }
+            bonusCheckbox.onchange = function() {
+                dynamicInput.style.display = this.checked ? 'inline-block' : 'none';
+                if (this.checked) { dynamicInput.value = dynamicInput.max; dynamicInput.focus(); }
+                else dynamicInput.value = '';
+            };
+            dynamicInput.onchange = function() {
+                let val = Math.floor((parseInt(this.value, 10) || 0) / minStep) * minStep;
+                val = Math.max(minStep, Math.min(val, Number(this.max)));
+                this.value = val;
+            };
             dynamicInput.style.display = 'none';
             dynamicInput.max = maxSpendMultiple;
         }
@@ -303,12 +420,14 @@ function openCheckout() {
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
+    document.getElementById('search-block')?.classList.add('hidden');
     toggleDelivery();
 }
 
 function backToCart() {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('cart-tab').classList.add('active');
+    document.getElementById('search-block')?.classList.add('hidden');
 }
 
 function submitCheckout() {
@@ -338,44 +457,48 @@ function submitCheckout() {
     if(dateTime.length < 3) return tg.showAlert("Укажите желаемую дату и время");
     if(phone.length < 7) return tg.showAlert("Введите корректный номер телефона");
 
-    const userId = parseInt(new URLSearchParams(window.location.search).get('uid')) || (tg.initDataUnsafe?.user?.id);
+    const userId = getMyId();
+    if (!userId) return tg.showAlert("Откройте магазин через Telegram-бота, чтобы оформить заказ.");
 
     const orderData = {
         userId: userId, items: cart, total: total, deliveryType: type,
-        address: address, dateTime: dateTime, payment: payment, phone: phone, useBonuses: useBonuses 
+        address: address, dateTime: dateTime, payment: payment, phone: phone,
+        useBonuses: useBonuses > 0, bonusAmount: useBonuses, city: selectedCity
     };
 
     const btn = document.querySelector('#checkout-tab .order-btn');
     if(btn) { btn.disabled = true; btn.style.opacity = '0.7'; btn.innerText = '⏳ Отправка...'; }
 
-    fetch('/api/orders', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData)
-    })
-    .then(async response => {
-        if (!response.ok) throw new Error(await response.text());
-        return response.json();
-    })
+    apiFetch('/api/orders', jsonOptions(orderData))
     .then(result => {
-        tg.showAlert("Заказ #" + result.order_id + " успешно оформлен!");
-        clearCart(); tg.close();
+        tg.showAlert(`Заказ #${result.order_id} оформлен. К оплате: ${result.total} ₽`);
+        clearCart();
+        if (nativeTelegram) tg.close();
+        else showTab('catalog', document.querySelector('.tab-btn'));
     })
     .catch(error => {
         if(btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerText = 'Подтвердить заказ'; }
-        tg.showAlert("❌ Сбой при отправке. Проверьте соединение.");
+        tg.showAlert(`Не удалось оформить заказ: ${error.message}`);
     });
 }
 
 function getMyId() {
     const urlParams = new URLSearchParams(window.location.search);
-    return parseInt(urlParams.get('uid')) || (tg.initDataUnsafe?.user?.id) || 0;
+    return (tg.initDataUnsafe?.user?.id) || parseInt(urlParams.get('uid')) || 0;
 }
 
 function loadProfileData() {
     const userId = getMyId();
     if(!userId) return;
-    fetch(`/api/profile?user_id=${userId}`)
-        .then(res => res.json())
+    apiFetch(`/api/profile?user_id=${userId}`)
         .then(data => {
+            if (!selectedCity && data.city && data.city !== 'Не выбран') {
+                selectedCity = data.city;
+                persistCity();
+                updateCityLabels();
+                closeAdmModal('city-modal');
+                loadCatalog();
+            }
             userBonuses = data.bonuses || 0; 
             const uVip = document.getElementById('u-vip');
             if(uVip) uVip.innerText = data.vip_name;
@@ -384,7 +507,7 @@ function loadProfileData() {
             const nxtLvl = document.getElementById('u-next-lvl');
             if(nxtLvl) {
                 if(data.to_next > 0) { nxtLvl.innerText = `До след. уровня: ${data.to_next} ₽`; nxtLvl.style.color = 'var(--gray)'; } 
-                else { nxtLvl.innerText = `🌟 Максимальный уровень!`; nxtLvl.style.color = '#ffb84d'; }
+                else { nxtLvl.innerText = `🌟 Максимальный уровень!`; nxtLvl.style.color = 'var(--accent)'; }
             }
             const uBonuses = document.getElementById('u-bonuses');
             if(uBonuses) uBonuses.innerText = `${userBonuses} ₽`;
@@ -394,15 +517,21 @@ function loadProfileData() {
             if(uRefs) uRefs.innerText = `${data.refs} чел.`;
             
             const uRefLink = document.getElementById('u-ref-link');
-            if(uRefLink) uRefLink.value = `https://t.me/vapelab2_bot?start=ref_${userId}`;
-        });
+            if(uRefLink && data.ref_link) uRefLink.value = data.ref_link;
+        })
+        .catch(error => console.warn('Не удалось загрузить профиль:', error));
 }
 
-function copyRefLink() {
+async function copyRefLink() {
     const linkInput = document.getElementById('u-ref-link');
-    linkInput.select(); document.execCommand("copy");
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-    tg.showAlert("✅ Ссылка скопирована!");
+    try {
+        await navigator.clipboard.writeText(linkInput.value);
+    } catch {
+        linkInput.select();
+        document.execCommand('copy');
+    }
+    try { tg.HapticFeedback?.impactOccurred('light'); } catch {}
+    tg.showAlert("Ссылка скопирована.");
 }
 
 function openClientGiveaways() {
@@ -410,8 +539,7 @@ function openClientGiveaways() {
     const list = document.getElementById('client-gw-list');
     list.innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка конкурсов...</p>';
     
-    fetch(`/api/giveaways?user_id=${getMyId()}`)
-    .then(res => res.json())
+    apiFetch(`/api/giveaways?user_id=${getMyId()}`)
     .then(data => {
         if (data.length === 0) { list.innerHTML = '<p style="text-align:center; color:var(--gray);">Нет активных конкурсов</p>'; return; }
         let html = '';
@@ -422,18 +550,18 @@ function openClientGiveaways() {
             
             html += `<div class="info-card" style="margin-bottom:15px; border-color:var(--border);">
                 <h4 style="color:white; margin:0 0 10px 0;">Розыгрыш #${g.id}</h4>
-                <p style="color:var(--gray);">${g.text}</p>
+                <p style="color:var(--gray);">${escapeHtml(g.text)}</p>
                 <div style="font-size:12px; margin-bottom:10px;">Мест: <b>${g.winners_count}</b> | Участников: <b>${g.parts_count}</b></div>
                 ${btnHtml}
             </div>`;
         });
         list.innerHTML = html;
-    });
+    })
+    .catch(error => { list.innerHTML = `<p style="text-align:center;color:var(--gray)">Не удалось загрузить конкурсы: ${escapeHtml(error.message)}</p>`; });
 }
 
 function joinGiveaway(gw_id) {
-    fetch(`/api/giveaways/${gw_id}/join`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: getMyId()}) })
-    .then(async res => { if (!res.ok) throw new Error((await res.json()).detail); return res.json(); })
+    apiFetch(`/api/giveaways/${gw_id}/join`, jsonOptions({user_id: getMyId()}))
     .then(() => { tg.showAlert("✅ Вы участник!"); openClientGiveaways(); })
     .catch(err => tg.showAlert(`❌ ${err.message}`));
 }
@@ -446,14 +574,18 @@ function setAdminTabActive(btnId) {
     document.getElementById('admin-workspace').innerHTML = '<p style="text-align:center; color:var(--gray);">Загрузка...</p>';
 }
 
+function showAdminError(error) {
+    const workspace = document.getElementById('admin-workspace');
+    if (workspace) workspace.innerHTML = `<div class="info-card" style="text-align:center"><b>Не удалось загрузить данные</b><p style="color:var(--gray);font-size:13px">${escapeHtml(error.message)}</p></div>`;
+}
+
 function closeAdmModal(id) { document.getElementById(id).classList.add('hidden'); }
 function openAddModal() { document.getElementById('adm-add-modal').classList.remove('hidden'); }
 
 let adminProducts = [];
 function loadAdminProducts() {
     setAdminTabActive('btn-adm-prod');
-    fetch(`/api/admin/products?admin_id=${getMyId()}`)
-        .then(res => res.json())
+    apiFetch(`/api/admin/products?admin_id=${getMyId()}`)
         .then(data => {
             adminProducts = data;
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openAddModal()">➕ Добавить товар</button>`;
@@ -462,8 +594,8 @@ function loadAdminProducts() {
                 <div class="info-card" style="margin-bottom:10px; transform: none;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <div>
-                            <b style="color:var(--text);">${p.name}</b><br>
-                            <span style="color:var(--gray); font-size:12px;">${p.category} | ${p.price}₽</span>
+                            <b style="color:var(--text);">${escapeHtml(p.name)}</b><br>
+                            <span style="color:var(--gray); font-size:12px;">${escapeHtml(p.category)} · ${escapeHtml(p.city)} · ${p.price}₽</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px;">
                             <button onclick="changeStock(${p.id}, ${p.stock - 1})" style="background:var(--dark-bg); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">-</button>
@@ -479,16 +611,17 @@ function loadAdminProducts() {
                 </div>`;
             });
             document.getElementById('admin-workspace').innerHTML = html;
-        });
+        })
+        .catch(showAdminError);
 }
 
 function changeStock(prodId, newStock) {
     if (newStock < 0) return;
-    fetch(`/api/admin/products/${prodId}/stock?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stock: newStock}) }).then(() => loadAdminProducts());
+    apiFetch(`/api/admin/products/${prodId}/stock?admin_id=${getMyId()}`, jsonOptions({stock: newStock})).then(() => loadAdminProducts()).catch(error => tg.showAlert(`Не удалось изменить остаток: ${error.message}`));
 }
 
 function deleteProduct(prodId) {
-    if(confirm("Точно удалить товар?")) fetch(`/api/admin/products/${prodId}?admin_id=${getMyId()}`, {method: 'DELETE'}).then(() => loadAdminProducts());
+    if(confirm("Точно удалить товар?")) apiFetch(`/api/admin/products/${prodId}?admin_id=${getMyId()}`, {method: 'DELETE'}).then(() => loadAdminProducts()).catch(error => tg.showAlert(`Не удалось удалить товар: ${error.message}`));
 }
 
 async function submitNewProduct() {
@@ -498,25 +631,27 @@ async function submitNewProduct() {
     const stock = parseInt(document.getElementById('add-stock').value) || 0;
     const imgInput = document.getElementById('add-img');
     
-    if(!name || isNaN(price)) return tg.showAlert("Заполните название и цену!");
+    if(!name || !Number.isFinite(price) || price <= 0) return tg.showAlert("Укажите название и цену больше нуля.");
+    if(!selectedCity) { openCityModal(); return tg.showAlert("Сначала выберите город для товара."); }
 
     let image_url = null;
     if (imgInput.files && imgInput.files[0]) {
-        tg.showAlert("⏳ Загружаем фото...");
-        const formData = new FormData(); formData.append('image', imgInput.files[0]); formData.append('key', '967a6dda6211a62b5f6915a39548b309'); 
+        const formData = new FormData();
+        formData.append('image', imgInput.files[0]);
         try {
-            const imgRes = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
-            image_url = (await imgRes.json()).data.url;
-        } catch (e) { return tg.showAlert("❌ Ошибка фото."); }
+            const upload = await apiFetch(`/api/admin/upload-image?admin_id=${getMyId()}`, { method: 'POST', body: formData });
+            image_url = upload.url;
+        } catch (error) { return tg.showAlert(`Не удалось загрузить фото: ${error.message}`); }
     }
 
-    const data = { name, category, price, stock, image_url };
-    fetch(`/api/admin/products?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) })
+    const data = { name, category, price, stock, image_url, city: selectedCity, description: '' };
+    apiFetch(`/api/admin/products?admin_id=${getMyId()}`, jsonOptions(data))
     .then(() => {
         closeAdmModal('adm-add-modal'); loadAdminProducts();
         document.getElementById('add-name').value = ''; document.getElementById('add-price').value = ''; document.getElementById('add-stock').value = '';
         tg.showAlert(`✅ Товар добавлен!`);
-    });
+    })
+    .catch(error => tg.showAlert(`Не удалось добавить товар: ${error.message}`));
 }
 
 let currentEditProdId = null;
@@ -530,7 +665,7 @@ function openEditModal(id) {
 function saveProductEdit() {
     const price = parseFloat(document.getElementById('edit-price').value);
     const desc = document.getElementById('edit-desc').value.trim();
-    fetch(`/api/admin/products/${currentEditProdId}/edit?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({price, description: desc}) }).then(() => { closeAdmModal('adm-edit-modal'); loadAdminProducts(); });
+    apiFetch(`/api/admin/products/${currentEditProdId}/edit?admin_id=${getMyId()}`, jsonOptions({price, description: desc})).then(() => { closeAdmModal('adm-edit-modal'); loadAdminProducts(); }).catch(error => tg.showAlert(`Не удалось сохранить товар: ${error.message}`));
 }
 
 let currentFlavors = {};
@@ -546,15 +681,23 @@ function openFlavorsModal(id) {
 function renderFlavorsAdmin() {
     let html = '';
     for (let [flv, count] of Object.entries(currentFlavors)) {
+        const safeFlavor = escapeHtml(flv);
         html += `<div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center; background:var(--dark-bg); padding:8px; border-radius:8px;">
-            <span style="color:white; font-size:14px;">${flv}</span>
+            <span style="color:white; font-size:14px;">${safeFlavor}</span>
             <div style="display:flex; align-items:center; gap:8px;">
-                <b style="color:var(--text); font-size:14px;">${count} шт.</b>
-                <button onclick="delete currentFlavors['${flv}']; renderFlavorsAdmin()" style="background:var(--danger); border:none; color:white; width:28px; height:28px; border-radius:6px;">✕</button>
+                <b style="color:var(--text); font-size:14px;">${escapeHtml(count)} шт.</b>
+                <button data-delete-flavor="${safeFlavor}" aria-label="Удалить вкус" style="background:var(--danger); border:none; color:white; width:28px; height:28px; border-radius:6px;">✕</button>
             </div>
         </div>`;
     }
-    document.getElementById('flavor-list-admin').innerHTML = html || '<p style="color:var(--gray); font-size:13px; text-align:center;">Вкусов пока нет</p>';
+    const list = document.getElementById('flavor-list-admin');
+    list.innerHTML = html || '<p style="color:var(--gray); font-size:13px; text-align:center;">Вкусов пока нет</p>';
+    list.querySelectorAll('[data-delete-flavor]').forEach(button => {
+        button.addEventListener('click', () => {
+            delete currentFlavors[button.dataset.deleteFlavor];
+            renderFlavorsAdmin();
+        });
+    });
 }
 
 function addFlavorRow() {
@@ -569,13 +712,12 @@ function addFlavorRow() {
 }
 
 function saveFlavors() {
-    fetch(`/api/admin/products/${currentEditProdId}/flavors?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({flavors: currentFlavors}) }).then(() => { closeAdmModal('adm-flavors-modal'); loadAdminProducts(); });
+    apiFetch(`/api/admin/products/${currentEditProdId}/flavors?admin_id=${getMyId()}`, jsonOptions({flavors: currentFlavors})).then(() => { closeAdmModal('adm-flavors-modal'); loadAdminProducts(); }).catch(error => tg.showAlert(`Не удалось сохранить вкусы: ${error.message}`));
 }
 
 function loadAdminStats() {
     setAdminTabActive('btn-adm-stat');
-    fetch(`/api/admin/stats?admin_id=${getMyId()}`)
-        .then(res => res.json())
+    apiFetch(`/api/admin/stats?admin_id=${getMyId()}`)
         .then(data => {
             document.getElementById('admin-workspace').innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
@@ -587,20 +729,20 @@ function loadAdminStats() {
                     <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
                     <span style="color:var(--gray); font-size:12px;">Заказов: ${data.total.cnt}</span>
                 </div>`;
-        });
+        })
+        .catch(showAdminError);
 }
 
 function loadAdminOrders() {
     setAdminTabActive('btn-adm-ord');
-    fetch(`/api/admin/orders?admin_id=${getMyId()}`)
-        .then(res => res.json())
+    apiFetch(`/api/admin/orders?admin_id=${getMyId()}`)
         .then(data => {
             let html = '';
             data.forEach(o => {
-                let statusColor = '#ffb84d'; 
+                let statusColor = '#ff7182'; 
                 let statusText = 'Ожидает';
                 if (o.status === 'completed') {
-                    statusColor = '#4caf50'; 
+                    statusColor = '#ff7182'; 
                     statusText = 'Выполнен';
                 } else if (o.status === 'cancelled') {
                     statusColor = 'var(--danger)'; 
@@ -611,7 +753,7 @@ function loadAdminOrders() {
                 
                 let itemsHtml = '';
                 if (o.items && o.items.length > 0) {
-                    itemsHtml = `<div style="font-size:13px; color:white; margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">${o.items.map(i => '• ' + i).join('<br>')}</div>`;
+                    itemsHtml = `<div style="font-size:13px; color:white; margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">${o.items.map(i => '• ' + escapeHtml(i)).join('<br>')}</div>`;
                 }
 
                 html += `
@@ -620,45 +762,45 @@ function loadAdminOrders() {
                         <h3 style="margin:0; font-size:16px; color:white;">Заказ #${o.id}</h3>
                         <span style="font-size:12px; font-weight:bold; color:${statusColor}">${statusText}</span>
                     </div>
-                    <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${o.user_name} (ID: ${o.user_id})</p>
+                    <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${escapeHtml(o.user_name)} (ID: ${o.user_id})</p>
                     <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--text); font-weight:bold;">${o.total}₽</span></p>
                     
                     ${itemsHtml}
                     
                     ${isPending ? `<div style="display:flex; gap:10px; margin-top:10px;">
-                        <button onclick="changeOrderStatus('${o.id}', 'completed')" class="order-btn" style="flex:1; background:#4caf50; padding:10px;">✅</button>
+                        <button onclick="changeOrderStatus('${o.id}', 'completed')" class="order-btn" style="flex:1; padding:10px;">✅</button>
                         <button onclick="changeOrderStatus('${o.id}', 'cancelled')" class="order-btn" style="flex:1; background:var(--danger); padding:10px;">❌</button>
                     </div>` : ''}
                 </div>`;
             });
             document.getElementById('admin-workspace').innerHTML = html || '<p style="text-align:center; color:var(--gray);">Заказов пока нет</p>';
-        });
+        })
+        .catch(showAdminError);
 }
 
 function changeOrderStatus(oid, status) {
-    if(confirm("Изменить статус заказа?")) fetch(`/api/admin/orders/${oid}/status?admin_id=${getMyId()}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({status}) }).then(() => loadAdminOrders());
+    if(confirm("Изменить статус заказа?")) apiFetch(`/api/admin/orders/${oid}/status?admin_id=${getMyId()}`, jsonOptions({status})).then(() => loadAdminOrders()).catch(error => tg.showAlert(`Не удалось обновить заказ: ${error.message}`));
 }
 
 function loadAdminUsers() {
     setAdminTabActive('btn-adm-usr');
-    fetch(`/api/admin/users?admin_id=${getMyId()}`)
-        .then(res => res.json())
+    apiFetch(`/api/admin/users?admin_id=${getMyId()}`)
         .then(data => {
             let html = '';
             data.forEach(u => {
                 html += `<div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; transform:none;">
-                    <div><b style="color:white;">${u.name}</b><br><span style="color:var(--gray); font-size:12px;">ID: ${u.id}</span></div>
+                    <div><b style="color:white;">${escapeHtml(u.name)}</b><br><span style="color:var(--gray); font-size:12px;">ID: ${u.id}</span></div>
                     <div style="text-align:right;"><span style="color:var(--text); font-weight:bold; font-size:16px;">${u.orders}</span><br><span style="color:var(--gray); font-size:11px;">заказов</span></div>
                 </div>`;
             });
             document.getElementById('admin-workspace').innerHTML = html;
-        });
+        })
+        .catch(showAdminError);
 }
 
 function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
-    fetch(`/api/admin/giveaways?admin_id=${getMyId()}`)
-        .then(res => res.json())
+    apiFetch(`/api/admin/giveaways?admin_id=${getMyId()}`)
         .then(data => {
             let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="document.getElementById('adm-gw-modal').classList.remove('hidden')">🎁 Создать конкурс</button>`;
             data.forEach(g => {
@@ -666,33 +808,32 @@ function loadAdminGiveaways() {
                 <div class="info-card" style="margin-bottom:10px; transform:none;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
                         <b style="color:white;">Конкурс #${g.id}</b>
-                        ${g.is_active ? '<span style="color:#4caf50; font-weight:bold;">Активен</span>' : '<span style="color:var(--gray); font-weight:bold;">Завершен</span>'}
+                        ${g.is_active ? '<span style="color:var(--accent); font-weight:bold;">Активен</span>' : '<span style="color:var(--gray); font-weight:bold;">Завершен</span>'}
                     </div>
-                    <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${g.text}</p>
+                    <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${escapeHtml(g.text)}</p>
                     <span style="font-size:13px; color:var(--text);">Участников: <b>${g.parts}</b></span>
                     ${g.is_active ? `<button onclick="rollGiveaway(${g.id})" class="outline-btn" style="margin-top:10px;">🎲 Подвести итоги</button>` : ''}
                 </div>`;
             });
             document.getElementById('admin-workspace').innerHTML = html;
-        });
+        })
+        .catch(showAdminError);
 }
 
 function submitNewGiveaway() {
     const text = document.getElementById('gw-text').value.trim();
     if(!text) return tg.showAlert("Введите текст конкурса!");
     
-    fetch(`/api/admin/giveaways?admin_id=${getMyId()}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({ text, winners_count: parseInt(document.getElementById('gw-winners').value)||1, min_order: parseFloat(document.getElementById('gw-min-order').value)||0, end_date: document.getElementById('gw-end-date').value||'', order_start: 0, order_end: 2000000000 })
-    }).then(() => { closeAdmModal('adm-gw-modal'); loadAdminGiveaways(); });
+    apiFetch(`/api/admin/giveaways?admin_id=${getMyId()}`, jsonOptions({ text, winners_count: parseInt(document.getElementById('gw-winners').value)||1, min_order: parseFloat(document.getElementById('gw-min-order').value)||0, end_date: document.getElementById('gw-end-date').value||'', order_start: 0, order_end: 2000000000 }))
+        .then(() => { closeAdmModal('adm-gw-modal'); loadAdminGiveaways(); })
+        .catch(error => tg.showAlert(`Не удалось создать конкурс: ${error.message}`));
 }
 
 function rollGiveaway(id) {
-    if(confirm("Завершить конкурс?")) fetch(`/api/admin/giveaways/${id}/roll?admin_id=${getMyId()}`, { method: 'POST' }).then(async res => {
-        const data = await res.json();
+    if(confirm("Завершить конкурс?")) apiFetch(`/api/admin/giveaways/${id}/roll?admin_id=${getMyId()}`, { method: 'POST' }).then(data => {
         tg.showAlert(`🎉 Победители: ${data.winner_names.join(", ")}`);
         loadAdminGiveaways();
-    }).catch(() => tg.showAlert("❌ Ошибка: В розыгрыше нет участников!"));
+    }).catch(error => tg.showAlert(`Не удалось завершить конкурс: ${error.message}`));
 }
 
 const admBtn = document.getElementById('admin-btn');
