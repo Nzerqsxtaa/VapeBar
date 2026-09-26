@@ -347,12 +347,6 @@ function updateCartUI() {
     if(totalEl) totalEl.innerText = total + ' ₽';
 }
 
-function toggleDelivery() {
-    const type = document.getElementById('co-delivery').value;
-    const addrGroup = document.getElementById('address-group');
-    if (addrGroup) addrGroup.style.display = type === 'Самовывоз' ? 'none' : 'block';
-}
-
 function openCheckout() {
     if(cart.length === 0) return tg.showAlert("Сначала добавьте товары в корзину!");
     if(!selectedCity) { openCityModal(); return tg.showAlert("Сначала выберите город."); }
@@ -410,7 +404,6 @@ function openCheckout() {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
     document.getElementById('search-block')?.classList.add('hidden');
-    toggleDelivery();
 }
 
 function backToCart() {
@@ -420,9 +413,8 @@ function backToCart() {
 }
 
 function submitCheckout() {
-    const type = document.getElementById('co-delivery').value;
-    const addressEl = document.getElementById('co-address');
-    const address = addressEl ? addressEl.value.trim() : "Не указан";
+    const type = 'Самовывоз';
+    const address = 'Не указан';
     const dateTime = document.getElementById('co-datetime').value.trim();
     const phone = document.getElementById('co-phone').value.trim();
     const payment = document.getElementById('co-payment').value;
@@ -442,7 +434,6 @@ function submitCheckout() {
     }
 
     if(!age) return tg.showAlert("Подтвердите возраст (18+)");
-    if(type === 'Доставка' && address.length < 5) return tg.showAlert("Введите точный адрес доставки");
     if(dateTime.length < 3) return tg.showAlert("Укажите желаемую дату и время");
     if(phone.length < 7) return tg.showAlert("Введите корректный номер телефона");
 
@@ -532,14 +523,20 @@ function openClientGiveaways() {
         if (data.length === 0) { list.innerHTML = '<p style="text-align:center; color:var(--gray);">Нет активных конкурсов</p>'; return; }
         let html = '';
         data.forEach(g => {
+            const prize = escapeHtml(g.prize || 'Приз уточняется');
+            const rule = escapeHtml(describeGiveawayCondition(g));
             let btnHtml = g.is_participating 
                 ? `<button disabled class="order-btn" style="background:var(--dark-bg); color:var(--gray);">✅ Участвуете</button>`
                 : `<button onclick="joinGiveaway(${g.id})" class="order-btn">🎁 Участвую</button>`;
             
             html += `<div class="info-card" style="margin-bottom:15px; border-color:var(--border);">
-                <h4 style="color:white; margin:0 0 10px 0;">Розыгрыш #${g.id}</h4>
-                <p style="color:var(--gray);">${escapeHtml(g.text)}</p>
-                <div style="font-size:12px; margin-bottom:10px;">Мест: <b>${g.winners_count}</b> | Участников: <b>${g.parts_count}</b></div>
+                <h4 style="color:white; margin:0 0 8px 0;">🎁 ${prize}</h4>
+                <p style="color:var(--gray); margin:0 0 9px;">${escapeHtml(g.text)}</p>
+                <div style="font-size:12px; line-height:1.55; margin-bottom:10px; color:var(--gray);">
+                    Условие: <b style="color:var(--text);">${rule}</b><br>
+                    Победителей: <b style="color:var(--text);">${g.winners_count}</b> · Участников: <b style="color:var(--text);">${g.parts_count}</b>
+                    ${g.end_date ? `<br>Завершение: <b style="color:var(--text);">${escapeHtml(formatGiveawayDate(g.end_date))}</b>` : ''}
+                </div>
                 ${btnHtml}
             </div>`;
         });
@@ -859,7 +856,7 @@ function loadAdminGiveaways() {
     setAdminTabActive('btn-adm-gw');
     apiFetch(`/api/admin/giveaways?admin_id=${getMyId()}`)
         .then(data => {
-            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="document.getElementById('adm-gw-modal').classList.remove('hidden')">🎁 Создать конкурс</button>`;
+            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openNewGiveawayForm()">🎁 Создать конкурс</button>`;
             data.forEach(g => {
                 html += `
                 <div class="info-card" style="margin-bottom:10px; transform:none;">
@@ -867,8 +864,11 @@ function loadAdminGiveaways() {
                         <b style="color:white;">Конкурс #${g.id}</b>
                         ${g.is_active ? '<span style="color:var(--accent); font-weight:bold;">Активен</span>' : '<span style="color:var(--gray); font-weight:bold;">Завершен</span>'}
                     </div>
+                    <p style="font-size:13px; color:var(--text); margin:0 0 6px;"><b>Приз:</b> ${escapeHtml(g.prize || 'Приз не указан')}</p>
                     <p style="font-size:12px; color:var(--gray); margin-bottom:8px;">${escapeHtml(g.text)}</p>
-                    <span style="font-size:13px; color:var(--text);">Участников: <b>${g.parts}</b></span>
+                    <p style="font-size:12px; color:var(--gray); margin:0 0 8px;"><b style="color:var(--text);">Условие:</b> ${escapeHtml(describeGiveawayCondition(g))}</p>
+                    <span style="font-size:12px; color:var(--gray);">Победителей: <b style="color:var(--text);">${g.winners_count}</b> · Участников: <b style="color:var(--text);">${g.parts}</b></span>
+                    ${g.end_date ? `<div style="font-size:12px; color:var(--gray); margin-top:6px;">Завершение: ${escapeHtml(formatGiveawayDate(g.end_date))}</div>` : ''}
                     ${g.is_active ? `<button onclick="rollGiveaway(${g.id})" class="outline-btn" style="margin-top:10px;">🎲 Подвести итоги</button>` : ''}
                 </div>`;
             });
@@ -877,11 +877,88 @@ function loadAdminGiveaways() {
         .catch(showAdminError);
 }
 
+function openNewGiveawayForm() {
+    ['gw-prize', 'gw-text', 'gw-min-order', 'gw-min-total', 'gw-order-start', 'gw-order-end', 'gw-city', 'gw-end-date'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    document.getElementById('gw-winners').value = '1';
+    document.getElementById('gw-min-orders').value = '2';
+    document.getElementById('gw-condition-type').value = 'everyone';
+    updateGiveawayConditionFields();
+    document.getElementById('adm-gw-modal').classList.remove('hidden');
+}
+
+function updateGiveawayConditionFields() {
+    const type = document.getElementById('gw-condition-type').value;
+    const fields = document.getElementById('gw-condition-fields');
+    fields.classList.toggle('hidden', type === 'everyone');
+    document.getElementById('gw-min-order-group').classList.toggle('hidden', type !== 'single_order');
+    document.getElementById('gw-min-total-group').classList.toggle('hidden', type !== 'total_spend');
+    document.getElementById('gw-min-orders-group').classList.toggle('hidden', type !== 'order_count');
+}
+
+function datetimeLocalToEpoch(value) {
+    if (!value) return null;
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? Math.floor(timestamp / 1000) : null;
+}
+
+function formatGiveawayDate(value) {
+    const numeric = Number(value);
+    const date = Number.isFinite(numeric) && numeric > 0 ? new Date(numeric * 1000) : new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function describeGiveawayCondition(g) {
+    let type = g.condition_type || 'legacy';
+    if (type === 'legacy') type = Number(g.min_order) > 0 ? 'single_order' : 'everyone';
+    let result = '';
+    if (type === 'completed_order') result = 'есть выполненный заказ';
+    else if (type === 'single_order') result = `выполненный заказ от ${Number(g.min_order || 0).toLocaleString('ru-RU')} ₽`;
+    else if (type === 'total_spend') result = `сумма выполненных заказов от ${Number(g.min_total || 0).toLocaleString('ru-RU')} ₽`;
+    else if (type === 'order_count') result = `выполнено заказов: ${Number(g.min_orders || 1)}`;
+    else result = 'доступен всем, заказ не требуется';
+
+    const start = Number(g.order_start || 0);
+    const end = Number(g.order_end || 2000000000);
+    if (start > 0 || end < 2000000000) {
+        const from = start > 0 ? formatGiveawayDate(start) : 'начала конкурса';
+        const to = end < 2000000000 ? formatGiveawayDate(end) : 'сейчас';
+        result += ` · период ${from} — ${to}`;
+    }
+    if (g.condition_city) result += ` · ${g.condition_city}`;
+    return result;
+}
+
 function submitNewGiveaway() {
+    const prize = document.getElementById('gw-prize').value.trim();
     const text = document.getElementById('gw-text').value.trim();
-    if(!text) return tg.showAlert("Введите текст конкурса!");
-    
-    apiFetch(`/api/admin/giveaways?admin_id=${getMyId()}`, jsonOptions({ text, winners_count: parseInt(document.getElementById('gw-winners').value)||1, min_order: parseFloat(document.getElementById('gw-min-order').value)||0, end_date: document.getElementById('gw-end-date').value||'', order_start: 0, order_end: 2000000000 }))
+    const condition_type = document.getElementById('gw-condition-type').value;
+    const start = datetimeLocalToEpoch(document.getElementById('gw-order-start').value);
+    const end = datetimeLocalToEpoch(document.getElementById('gw-order-end').value);
+    const contestEnd = datetimeLocalToEpoch(document.getElementById('gw-end-date').value);
+    if (!prize) return tg.showAlert('Укажите приз конкурса.');
+    if (!text) return tg.showAlert('Добавьте описание конкурса.');
+    if (start && end && start > end) return tg.showAlert('Начало периода заказов позже его окончания.');
+    if (condition_type === 'single_order' && Number(document.getElementById('gw-min-order').value) <= 0) return tg.showAlert('Укажите минимальную сумму заказа.');
+    if (condition_type === 'total_spend' && Number(document.getElementById('gw-min-total').value) <= 0) return tg.showAlert('Укажите минимальную общую сумму заказов.');
+
+    const data = {
+        prize,
+        text,
+        winners_count: parseInt(document.getElementById('gw-winners').value, 10) || 1,
+        condition_type,
+        min_order: condition_type === 'single_order' ? Number(document.getElementById('gw-min-order').value) : 0,
+        min_total: condition_type === 'total_spend' ? Number(document.getElementById('gw-min-total').value) : 0,
+        min_orders: condition_type === 'order_count' ? (parseInt(document.getElementById('gw-min-orders').value, 10) || 1) : 1,
+        order_start: condition_type === 'everyone' ? 0 : (start || 0),
+        order_end: condition_type === 'everyone' ? 2000000000 : (end || 2000000000),
+        condition_city: condition_type === 'everyone' ? null : (document.getElementById('gw-city').value || null),
+        end_date: contestEnd ? String(contestEnd) : ''
+    };
+
+    apiFetch(`/api/admin/giveaways?admin_id=${getMyId()}`, jsonOptions(data))
         .then(() => { closeAdmModal('adm-gw-modal'); loadAdminGiveaways(); })
         .catch(error => tg.showAlert(`Не удалось создать конкурс: ${error.message}`));
 }
