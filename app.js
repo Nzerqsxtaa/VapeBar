@@ -24,15 +24,6 @@ function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 
-function setConnectionStatus(state, label) {
-    const badge = document.getElementById('connection-status');
-    const text = document.getElementById('connection-label');
-    if (!badge || !text) return;
-    badge.classList.toggle('online', state === 'online');
-    badge.classList.toggle('offline', state === 'offline');
-    text.textContent = label;
-}
-
 function apiUrl(path) { return `${API_BASE_URL}${path}`; }
 
 async function apiFetch(path, options = {}) {
@@ -47,9 +38,11 @@ async function apiFetch(path, options = {}) {
         try { data = raw ? JSON.parse(raw) : {}; } catch { data = { detail: raw }; }
         if (!response.ok) {
             const detail = data.detail || data.message || `Ошибка сервера (${response.status})`;
+            if (response.status === 401 && detail === 'Откройте приложение через Telegram-бота.') {
+                throw new Error('Откройте магазин кнопкой «Открыть магазин» в сообщении бота. Если её нет, отправьте боту /start.');
+            }
             throw new Error(detail);
         }
-        setConnectionStatus('online', 'На связи');
         return data;
     } catch (error) {
         if (error.name === 'AbortError') throw new Error('Сервер не ответил за 12 секунд. Попробуйте ещё раз.');
@@ -86,8 +79,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     const adminIds = [7764501774, 5526616552, 8649568755, 7542257628];
-    const currentUserId = parseInt(urlUid) || user?.id;
-    if (adminIds.includes(currentUserId)) {
+    const currentUserId = Number(tg.initDataUnsafe?.user?.id || 0);
+    if (tg.initData && adminIds.includes(currentUserId)) {
         const adminBtn = document.getElementById('admin-btn');
         if(adminBtn) adminBtn.classList.remove('hidden');
     }
@@ -98,10 +91,6 @@ window.addEventListener('DOMContentLoaded', () => {
     updateCityLabels();
     loadCatalog();
     if (!selectedCity) openCityModal();
-    apiFetch('/api/health').catch(error => {
-        setConnectionStatus('offline', 'Нет связи');
-        console.error('Ошибка проверки соединения:', error);
-    });
 });
 
 function updateCityLabels() {
@@ -126,7 +115,6 @@ async function loadCatalog() {
         products = await apiFetch(`/api/catalog?city=${encodeURIComponent(selectedCity)}`);
         renderProducts();
     } catch (error) {
-        setConnectionStatus('offline', 'Нет связи');
         if (grid) grid.innerHTML = `<div class="info-card" style="grid-column:1/-1;text-align:center"><b>Каталог пока недоступен</b><p style="color:var(--gray);font-size:13px">${escapeHtml(error.message)}</p><button class="outline-btn" onclick="loadCatalog()">Попробовать снова</button></div>`;
     }
 }
@@ -158,6 +146,7 @@ function showTab(tabId, btn) {
     if(btn) btn.classList.add('active');
     const search = document.getElementById('search-block');
     if (search) search.classList.toggle('hidden', tabId !== 'catalog');
+    if (tabId === 'admin' && getMyId()) loadAdminProducts();
 }
 
 function openCityModal() { document.getElementById('city-modal')?.classList.remove('hidden'); }
@@ -458,7 +447,7 @@ function submitCheckout() {
     if(phone.length < 7) return tg.showAlert("Введите корректный номер телефона");
 
     const userId = getMyId();
-    if (!userId) return tg.showAlert("Откройте магазин через Telegram-бота, чтобы оформить заказ.");
+    if (!userId) return tg.showAlert("Откройте магазин кнопкой «Открыть магазин» в сообщении бота. Если её нет, отправьте боту /start.");
 
     const orderData = {
         userId: userId, items: cart, total: total, deliveryType: type,
@@ -483,8 +472,7 @@ function submitCheckout() {
 }
 
 function getMyId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return (tg.initDataUnsafe?.user?.id) || parseInt(urlParams.get('uid')) || 0;
+    return tg.initData ? Number(tg.initDataUnsafe?.user?.id || 0) : 0;
 }
 
 function loadProfileData() {
@@ -588,27 +576,27 @@ function loadAdminProducts() {
     apiFetch(`/api/admin/products?admin_id=${getMyId()}`)
         .then(data => {
             adminProducts = data;
-            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openAddModal()">➕ Добавить товар</button>`;
+            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> Добавить товар</button>`;
             data.forEach(p => {
                 html += `
-                <div class="info-card" style="margin-bottom:10px; transform: none;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <div>
-                            <b style="color:var(--text);">${escapeHtml(p.name)}</b><br>
-                            <span style="color:var(--gray); font-size:12px;">${escapeHtml(p.category)} · ${escapeHtml(p.city)} · ${p.price}₽</span>
+                <article class="info-card admin-product-card">
+                    <div class="admin-product-head">
+                        <div class="admin-product-info">
+                            <b>${escapeHtml(p.name)}</b>
+                            <div class="admin-product-meta"><span>${escapeHtml(p.category)}</span><span>${escapeHtml(p.city)}</span><span>${formatAdminMoney(p.price)}</span></div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <button onclick="changeStock(${p.id}, ${p.stock - 1})" style="background:var(--dark-bg); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">-</button>
-                            <b style="color:var(--text);">${p.stock}</b>
-                            <button onclick="changeStock(${p.id}, ${p.stock + 1})" style="background:var(--dark-bg); border:1px solid var(--gray); color:white; width:30px; height:30px; border-radius:8px;">+</button>
+                        <div class="admin-stock-stepper" aria-label="Остаток: ${Number(p.stock) || 0} штук">
+                            <button onclick="changeStock(${p.id}, ${p.stock - 1})" aria-label="Уменьшить остаток">−</button>
+                            <b>${Number(p.stock) || 0}</b>
+                            <button onclick="changeStock(${p.id}, ${p.stock + 1})" aria-label="Увеличить остаток">+</button>
                         </div>
                     </div>
-                    <div style="display:flex; gap:5px;">
-                        <button onclick="openFlavorsModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:white; padding:6px; border-radius:8px; font-size:12px;">Вкусы</button>
-                        <button onclick="openEditModal(${p.id})" style="flex:1; background:transparent; border:1px solid var(--gray); color:var(--gray); padding:6px; border-radius:8px; font-size:12px;">Изм.</button>
-                        <button onclick="deleteProduct(${p.id})" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; border-radius:8px; font-size:12px;">Удал.</button>
+                    <div class="admin-product-actions">
+                        <button onclick="openFlavorsModal(${p.id})"><i class="fa-solid fa-layer-group"></i> Вкусы</button>
+                        <button onclick="openEditModal(${p.id})"><i class="fa-solid fa-pen"></i> Изменить</button>
+                        <button onclick="deleteProduct(${p.id})"><i class="fa-regular fa-trash-can"></i> Удалить</button>
                     </div>
-                </div>`;
+                </article>`;
             });
             document.getElementById('admin-workspace').innerHTML = html;
         })
@@ -715,22 +703,91 @@ function saveFlavors() {
     apiFetch(`/api/admin/products/${currentEditProdId}/flavors?admin_id=${getMyId()}`, jsonOptions({flavors: currentFlavors})).then(() => { closeAdmModal('adm-flavors-modal'); loadAdminProducts(); }).catch(error => tg.showAlert(`Не удалось сохранить вкусы: ${error.message}`));
 }
 
-function loadAdminStats() {
+function adminDateTimestamp(dateValue, endOfDay = false) {
+    if (!dateValue) return null;
+    const [year, month, day] = dateValue.split('-').map(Number);
+    const date = endOfDay
+        ? new Date(year, month - 1, day, 23, 59, 59, 999)
+        : new Date(year, month - 1, day, 0, 0, 0, 0);
+    return Math.floor(date.getTime() / 1000);
+}
+
+function formatAdminMoney(value) {
+    return `${Number(value || 0).toLocaleString('ru-RU')} ₽`;
+}
+
+function loadAdminStats(filters = {}) {
     setAdminTabActive('btn-adm-stat');
-    apiFetch(`/api/admin/stats?admin_id=${getMyId()}`)
+    const currentFilters = {
+        city: filters.city || 'Все',
+        status: filters.status || 'all',
+        from: filters.from || '',
+        to: filters.to || ''
+    };
+    const params = new URLSearchParams({ admin_id: String(getMyId()), city: currentFilters.city });
+    if (currentFilters.status !== 'all') params.set('status', currentFilters.status);
+    if (currentFilters.from && currentFilters.to) {
+        params.set('start_ts', String(adminDateTimestamp(currentFilters.from)));
+        params.set('end_ts', String(adminDateTimestamp(currentFilters.to, true)));
+    }
+
+    apiFetch(`/api/admin/stats?${params}`)
         .then(data => {
+            const cities = ['Все', 'Междуреченск', 'Мыски'];
+            const cityOptions = cities.map(city => `<option value="${city}" ${city === currentFilters.city ? 'selected' : ''}>${city === 'Все' ? 'Все города' : escapeHtml(city)}</option>`).join('');
+            const statusOptions = [
+                ['all', 'Все активные заказы'],
+                ['completed', 'Выполненные'],
+                ['pending', 'Ожидают выполнения']
+            ].map(([value, label]) => `<option value="${value}" ${value === currentFilters.status ? 'selected' : ''}>${label}</option>`).join('');
+
+            let statCards;
+            if (data.custom) {
+                const item = data.custom;
+                statCards = `<article class="admin-stat-card primary"><span class="admin-stat-label">Выручка за выбранный период</span><strong class="admin-stat-value">${formatAdminMoney(item.rev)}</strong><span class="admin-stat-detail">Заказов: ${item.cnt} · Средний чек: ${formatAdminMoney(item.aov)}</span></article>`;
+            } else {
+                const cards = [
+                    ['Сегодня', data.day], ['Эта неделя', data.week],
+                    ['Этот месяц', data.month], ['Этот год', data.year]
+                ];
+                statCards = cards.map(([label, item]) => `<article class="admin-stat-card"><span class="admin-stat-label">${label}</span><strong class="admin-stat-value">${formatAdminMoney(item.rev)}</strong><span class="admin-stat-detail">${item.cnt} заказов · чек ${formatAdminMoney(item.aov)}</span></article>`).join('');
+                statCards += `<article class="admin-stat-card primary"><span class="admin-stat-label">За всё время</span><strong class="admin-stat-value">${formatAdminMoney(data.total.rev)}</strong><span class="admin-stat-detail">Заказов: ${data.total.cnt} · Средний чек: ${formatAdminMoney(data.total.aov)}</span></article>`;
+            }
+
             document.getElementById('admin-workspace').innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <div class="info-card" style="margin:0; text-align:center;"><span style="color:var(--gray); font-size:12px;">Сегодня</span><br><b style="color:var(--text); font-size:18px;">${data.day.rev} ₽</b></div>
-                    <div class="info-card" style="margin:0; text-align:center;"><span style="color:var(--gray); font-size:12px;">Неделя</span><br><b style="color:var(--text); font-size:18px;">${data.week.rev} ₽</b></div>
-                </div>
-                <div class="info-card" style="text-align:center; border: 1px solid var(--border);">
-                    <span style="color:var(--gray); font-size:12px;">ВЫРУЧКА (ВСЕГО)</span><br>
-                    <b style="color:var(--accent); font-size:24px;">${data.total.rev} ₽</b><br>
-                    <span style="color:var(--gray); font-size:12px;">Заказов: ${data.total.cnt}</span>
-                </div>`;
+                <section class="info-card admin-filter-card">
+                    <h3 class="admin-filter-heading">Фильтры отчёта</h3>
+                    <div class="admin-filter-grid">
+                        <div class="form-group"><label for="stats-city">Город</label><select id="stats-city" class="form-input">${cityOptions}</select></div>
+                        <div class="form-group"><label for="stats-status">Статус заказа</label><select id="stats-status" class="form-input">${statusOptions}</select></div>
+                        <div class="form-group"><label for="stats-from">Дата с</label><input id="stats-from" class="form-input" type="date" value="${escapeHtml(currentFilters.from)}"></div>
+                        <div class="form-group"><label for="stats-to">Дата по</label><input id="stats-to" class="form-input" type="date" value="${escapeHtml(currentFilters.to)}"></div>
+                    </div>
+                    <div class="admin-filter-actions">
+                        <button class="order-btn" onclick="applyAdminStatsFilters()">Показать отчёт</button>
+                        <button class="outline-btn" onclick="resetAdminStatsFilters()">Сбросить</button>
+                    </div>
+                </section>
+                <div class="admin-stat-grid">${statCards}</div>`;
         })
         .catch(showAdminError);
+}
+
+function applyAdminStatsFilters() {
+    const from = document.getElementById('stats-from').value;
+    const to = document.getElementById('stats-to').value;
+    if (Boolean(from) !== Boolean(to)) return tg.showAlert('Выберите обе даты периода.');
+    if (from && to && from > to) return tg.showAlert('Начало периода должно быть раньше конца.');
+    loadAdminStats({
+        city: document.getElementById('stats-city').value,
+        status: document.getElementById('stats-status').value,
+        from,
+        to
+    });
+}
+
+function resetAdminStatsFilters() {
+    loadAdminStats({ city: 'Все', status: 'all' });
 }
 
 function loadAdminOrders() {
