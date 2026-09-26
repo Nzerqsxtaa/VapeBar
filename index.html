@@ -17,9 +17,6 @@
             <span class="word2">BAR</span>
             <span class="version">2.0</span>
         </h1>
-        <div class="connection-status" id="connection-status" role="status" aria-live="polite">
-            <span class="connection-dot"></span><span id="connection-label">Подключаемся</span>
-        </div>
     </div>
 
     <!-- ПОИСК -->
@@ -193,15 +190,16 @@
 
     <!-- АДМИНКА -->
     <section id="admin-tab" class="tab-content">
-        <h2 class="page-title">⚙️ Управление</h2>
-        <div class="cat-nav" style="margin-bottom: 20px;">
-            <button class="c-btn active" id="btn-adm-prod" onclick="loadAdminProducts()">📦 Товары</button>
-            <button class="c-btn" id="btn-adm-stat" onclick="loadAdminStats()">📊 Стат.</button>
-            <button class="c-btn" id="btn-adm-ord" onclick="loadAdminOrders()">🛒 Заказы</button>
-            <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()">👥 Клиенты</button>
-            <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()">🎁 Конкурсы</button>
+        <h2 class="page-title">Админ-панель</h2>
+        <p class="admin-intro">Каталог, заказы и выручка — в одном месте.</p>
+        <div class="cat-nav admin-nav">
+            <button class="c-btn active" id="btn-adm-prod" onclick="loadAdminProducts()"><i class="fa-solid fa-box"></i> Товары</button>
+            <button class="c-btn" id="btn-adm-stat" onclick="loadAdminStats()"><i class="fa-solid fa-chart-line"></i> Выручка</button>
+            <button class="c-btn" id="btn-adm-ord" onclick="loadAdminOrders()"><i class="fa-solid fa-receipt"></i> Заказы</button>
+            <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()"><i class="fa-solid fa-users"></i> Клиенты</button>
+            <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()"><i class="fa-solid fa-gift"></i> Розыгрыши</button>
         </div>
-        <div id="admin-workspace">
+        <div id="admin-workspace" class="admin-workspace">
             <p style="text-align:center; color:var(--gray);">Загрузка панели...</p>
         </div>
     </section>
