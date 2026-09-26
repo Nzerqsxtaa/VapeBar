@@ -128,6 +128,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .icon-btn { flex: 0 0 48px; width: 48px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-2); color: var(--accent); cursor: pointer; }
 .form-group { margin: 0 0 15px; }
 .form-group > label, .form-group label { display: block; margin-bottom: 7px; color: #c8b8bd; font-size: 12px; font-weight: 600; }
+.form-hint { display: block; margin-top: 7px; color: var(--gray); font-size: 11px; }
+.gw-condition-fields { margin: 0 0 15px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: rgba(0,0,0,.12); }
+.gw-condition-fields > .form-group:last-child { margin-bottom: 0; }
+.gw-period-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.gw-period-grid .form-group { min-width: 0; }
+.gw-period-grid .form-input { min-width: 0; padding: 10px 8px; font-size: 11px; }
 .form-input { width: 100%; min-height: 45px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 12px; background: #140b10; color: var(--text); font-size: 13px; }
 .form-input:focus { outline: none; border-color: rgba(255,72,96,.55); box-shadow: 0 0 0 3px var(--accent-glow); }
 .form-input::placeholder { color: #95858b; }
