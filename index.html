@@ -85,14 +85,8 @@
         <div class="info-card" style="margin-bottom: 20px;">
             <div class="form-group">
                 <label>Способ получения:</label>
-                <select id="co-delivery" class="form-input" onchange="toggleDelivery()">
-                    <option value="Самовывоз">Самовывоз (Бесплатно)</option>
-                    <option value="Доставка">Доставка (По тарифу)</option>
-                </select>
-            </div>
-            <div class="form-group" id="address-group" style="display: none;">
-                <label>Точный адрес доставки:</label>
-                <input type="text" id="co-address" class="form-input" placeholder="Улица, дом, квартира">
+                <div class="form-input" aria-disabled="true">Самовывоз · бесплатно</div>
+                <small class="form-hint">Доставка пока недоступна.</small>
             </div>
             <div class="form-group">
                 <label>Город (выбран в каталоге):</label>
@@ -293,10 +287,64 @@
     <div id="adm-gw-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 style="color:var(--accent); margin-top:0;">🎁 Новый конкурс</h3>
-            <textarea id="gw-text" class="form-input" rows="3" placeholder="Описание..." style="margin-bottom:10px; resize:none;"></textarea>
-            <input type="number" id="gw-winners" class="form-input" placeholder="Количество мест (шт)" value="1" style="margin-bottom:10px;">
-            <input type="number" id="gw-min-order" class="form-input" placeholder="Мин. заказ для участия (₽)" style="margin-bottom:10px;">
-            <input type="text" id="gw-end-date" class="form-input" placeholder="Дата подведения итогов" style="margin-bottom:15px;">
+            <div class="form-group">
+                <label for="gw-prize">Приз</label>
+                <input type="text" id="gw-prize" class="form-input" placeholder="Например: устройство или сертификат">
+            </div>
+            <div class="form-group">
+                <label for="gw-text">Описание конкурса</label>
+                <textarea id="gw-text" class="form-input" rows="3" placeholder="Что нужно сделать участнику?" style="resize:none;"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="gw-condition-type">Условие участия</label>
+                <select id="gw-condition-type" class="form-input" onchange="updateGiveawayConditionFields()">
+                    <option value="everyone">Для всех</option>
+                    <option value="completed_order">Есть выполненный заказ</option>
+                    <option value="single_order">Один заказ на нужную сумму</option>
+                    <option value="total_spend">Сумма нескольких заказов за период</option>
+                    <option value="order_count">Количество заказов за период</option>
+                </select>
+            </div>
+            <div id="gw-condition-fields" class="gw-condition-fields hidden">
+                <div id="gw-min-order-group" class="form-group hidden">
+                    <label for="gw-min-order">Минимальная сумма одного выполненного заказа, ₽</label>
+                    <input type="number" id="gw-min-order" class="form-input" min="1" step="1" placeholder="Например: 1 000">
+                </div>
+                <div id="gw-min-total-group" class="form-group hidden">
+                    <label for="gw-min-total">Минимальная общая сумма выполненных заказов, ₽</label>
+                    <input type="number" id="gw-min-total" class="form-input" min="1" step="1" placeholder="Например: 3 000">
+                </div>
+                <div id="gw-min-orders-group" class="form-group hidden">
+                    <label for="gw-min-orders">Минимум выполненных заказов</label>
+                    <input type="number" id="gw-min-orders" class="form-input" min="1" step="1" value="2">
+                </div>
+                <div class="gw-period-grid">
+                    <div class="form-group">
+                        <label for="gw-order-start">Заказы с даты</label>
+                        <input type="datetime-local" id="gw-order-start" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="gw-order-end">По дату</label>
+                        <input type="datetime-local" id="gw-order-end" class="form-input">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="gw-city">Город заказов</label>
+                    <select id="gw-city" class="form-input">
+                        <option value="">Любой город</option>
+                        <option value="Междуреченск">Междуреченск</option>
+                        <option value="Мыски">Мыски</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="gw-winners">Количество победителей</label>
+                <input type="number" id="gw-winners" class="form-input" min="1" step="1" value="1">
+            </div>
+            <div class="form-group">
+                <label for="gw-end-date">Конкурс завершится</label>
+                <input type="datetime-local" id="gw-end-date" class="form-input">
+            </div>
             <button class="order-btn" onclick="submitNewGiveaway()">Создать и запустить</button>
             <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
         </div>
