@@ -616,30 +616,9 @@ function loadProfileData() {
             if(uCb) uCb.innerText = `Кэшбек: ${data.cashback_pct}%`;
             const uRefs = document.getElementById('u-refs');
             if(uRefs) uRefs.innerText = `${data.refs} чел.`;
-            const uChannelRefs = document.getElementById('u-channel-refs');
-            if(uChannelRefs) uChannelRefs.innerText = `${data.channel_refs || 0} чел.`;
             
             const uRefLink = document.getElementById('u-ref-link');
             if(uRefLink && data.ref_link) uRefLink.value = data.ref_link;
-
-            const channelRefLink = document.getElementById('u-channel-ref-link');
-            const channelRefCopy = document.getElementById('u-channel-ref-copy');
-            const channelRefStatus = document.getElementById('u-channel-ref-status');
-            if (channelRefLink) {
-                apiFetch('/api/referrals/channel-link', jsonOptions({ user_id: userId }))
-                    .then(result => {
-                        channelRefLink.value = result.invite_link;
-                        if (channelRefCopy) channelRefCopy.disabled = false;
-                        if (channelRefStatus) channelRefStatus.textContent = '';
-                    })
-                    .catch(error => {
-                        channelRefLink.value = '';
-                        channelRefLink.placeholder = 'Ссылка пока не настроена';
-                        if (channelRefCopy) channelRefCopy.disabled = true;
-                        if (channelRefStatus) channelRefStatus.textContent = 'Администратору нужно настроить канал и права бота.';
-                        console.warn('Не удалось получить реферальную ссылку канала:', error.message);
-                    });
-            }
         })
         .catch(error => console.warn('Не удалось загрузить профиль:', error));
 }
