@@ -15,6 +15,8 @@ let cart = [];
 let currentSelectedProductId = null;
 let currentSelectedFlavor = null;
 let userBonuses = 0; 
+let appliedPromo = null;
+let promoValidationId = 0;
 let currentCategory = 'Все';
 let searchQuery = '';
 let selectedCity = '';
@@ -304,6 +306,8 @@ function removeFromCart(index) {
 }
 
 function updateCartUI() {
+    const promoButton = document.getElementById('co-promo-apply');
+    if (appliedPromo || promoButton?.disabled) clearAppliedPromo();
     const badge = document.getElementById('badge');
     if(badge) {
         badge.innerText = cart.length;
@@ -353,8 +357,8 @@ function openCheckout() {
     
     const bonuses = userBonuses;
     const total = cart.reduce((s,i)=>s+i.price, 0);
-    const minStep = 10;
-    const maxSpend = Math.min(bonuses, total);
+    const minStep = document.getElementById('co-payment').value === 'Наличные' ? 50 : 10;
+    const maxSpend = Math.min(bonuses, Math.max(0, total - Number(appliedPromo?.discount_amount || 0)));
     const maxSpendMultiple = Math.floor(maxSpend / minStep) * minStep;
     
     const bonusCheckbox = document.getElementById('co-bonuses');
@@ -390,20 +394,100 @@ function openCheckout() {
                 dynamicInput.style.display = this.checked ? 'inline-block' : 'none';
                 if (this.checked) { dynamicInput.value = dynamicInput.max; dynamicInput.focus(); }
                 else dynamicInput.value = '';
+                updateCheckoutTotals();
             };
             dynamicInput.onchange = function() {
-                let val = Math.floor((parseInt(this.value, 10) || 0) / minStep) * minStep;
-                val = Math.max(minStep, Math.min(val, Number(this.max)));
+                const step = document.getElementById('co-payment').value === 'Наличные' ? 50 : 10;
+                this.step = step;
+                let val = Math.floor((parseInt(this.value, 10) || 0) / step) * step;
+                val = Math.max(step, Math.min(val, Number(this.max)));
                 this.value = val;
+                updateCheckoutTotals();
             };
             dynamicInput.style.display = 'none';
+            dynamicInput.value = '';
             dynamicInput.max = maxSpendMultiple;
         }
     }
+    document.getElementById('co-payment').onchange = updateCheckoutTotals;
 
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('checkout-tab').classList.add('active');
     document.getElementById('search-block')?.classList.add('hidden');
+    updateCheckoutTotals();
+}
+
+function clearAppliedPromo() {
+    promoValidationId += 1;
+    appliedPromo = null;
+    const applyButton = document.getElementById('co-promo-apply');
+    if (applyButton) applyButton.disabled = false;
+    const status = document.getElementById('co-promo-status');
+    if (status) status.textContent = '';
+    updateCheckoutTotals();
+}
+
+function applyPromoCode() {
+    const input = document.getElementById('co-promocode');
+    const status = document.getElementById('co-promo-status');
+    const button = document.getElementById('co-promo-apply');
+    const code = input.value.trim().toUpperCase();
+    if (!code) return tg.showAlert('Введите промокод.');
+    if (!selectedCity || cart.length === 0) return tg.showAlert('Сначала выберите город и добавьте товары в корзину.');
+    const userId = getMyId();
+    if (!userId) return tg.showAlert('Откройте магазин кнопкой «Открыть магазин» в сообщении бота.');
+
+    appliedPromo = null;
+    const validationId = ++promoValidationId;
+    status.textContent = 'Проверяем промокод…';
+    status.style.color = 'var(--gray)';
+    button.disabled = true;
+    const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0), 0);
+    apiFetch('/api/promos/validate', jsonOptions({ user_id: userId, code, subtotal, city: selectedCity }))
+        .then(result => {
+            if (validationId !== promoValidationId) return;
+            appliedPromo = result;
+            status.textContent = result.message;
+            status.style.color = 'var(--accent)';
+            updateCheckoutTotals();
+        })
+        .catch(error => {
+            if (validationId !== promoValidationId) return;
+            status.textContent = error.message;
+            status.style.color = 'var(--danger)';
+            updateCheckoutTotals();
+        })
+        .finally(() => { if (validationId === promoValidationId) button.disabled = false; });
+}
+
+function updateCheckoutTotals() {
+    const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0), 0);
+    const discount = Math.min(Number(appliedPromo?.discount_amount || 0), subtotal);
+    const checkbox = document.getElementById('co-bonuses');
+    const bonusInput = document.getElementById('co-bonus-input');
+    const step = document.getElementById('co-payment')?.value === 'Наличные' ? 50 : 10;
+    const maxBonus = Math.floor(Math.min(userBonuses, Math.max(0, subtotal - discount)) / step) * step;
+    if (bonusInput) {
+        bonusInput.step = step;
+        bonusInput.min = maxBonus >= step ? step : 0;
+        bonusInput.max = maxBonus;
+        if (checkbox?.checked && Number(bonusInput.value || 0) > maxBonus) bonusInput.value = maxBonus;
+        if (checkbox?.checked && maxBonus <= 0) { checkbox.checked = false; bonusInput.value = ''; bonusInput.style.display = 'none'; }
+    }
+    const bonusCountDisplay = document.getElementById('co-bonus-count');
+    if (bonusCountDisplay) bonusCountDisplay.textContent = `${maxBonus} ₽`;
+    if (checkbox?.parentElement) checkbox.parentElement.style.display = maxBonus >= step ? 'flex' : 'none';
+    const bonusSpend = checkbox?.checked ? Math.floor(Math.min(Number(bonusInput?.value || 0), maxBonus) / step) * step : 0;
+    const due = Math.max(0, subtotal - discount - bonusSpend);
+    const money = amount => `${Number(amount || 0).toLocaleString('ru-RU')} ₽`;
+    const subtotalEl = document.getElementById('co-subtotal');
+    const discountEl = document.getElementById('co-promo-discount');
+    const bonusEl = document.getElementById('co-bonus-total');
+    const totalEl = document.getElementById('co-final-total');
+    if (subtotalEl) subtotalEl.textContent = money(subtotal);
+    if (discountEl) discountEl.textContent = discount > 0 ? `−${money(discount)}` : money(0);
+    if (bonusEl) bonusEl.textContent = bonusSpend > 0 ? `−${money(bonusSpend)}` : money(0);
+    if (totalEl) totalEl.textContent = money(due);
 }
 
 function backToCart() {
@@ -413,6 +497,9 @@ function backToCart() {
 }
 
 function submitCheckout() {
+    if (document.getElementById('co-promo-apply')?.disabled) {
+        return tg.showAlert('Подождите, пока проверится промокод.');
+    }
     const type = 'Самовывоз';
     const address = 'Не указан';
     const dateTime = document.getElementById('co-datetime').value.trim();
@@ -421,7 +508,7 @@ function submitCheckout() {
     const age = document.getElementById('co-age').checked;
     
     const total = cart.reduce((s,i)=>s+i.price, 0);
-    const minStep = 10;
+    const minStep = payment === 'Наличные' ? 50 : 10;
 
     let useBonuses = 0;
     const bonusCheckbox = document.getElementById('co-bonuses');
@@ -443,7 +530,8 @@ function submitCheckout() {
     const orderData = {
         userId: userId, items: cart, total: total, deliveryType: type,
         address: address, dateTime: dateTime, payment: payment, phone: phone,
-        useBonuses: useBonuses > 0, bonusAmount: useBonuses, city: selectedCity
+        useBonuses: useBonuses > 0, bonusAmount: useBonuses, city: selectedCity,
+        promoCode: appliedPromo?.code || null
     };
 
     const btn = document.querySelector('#checkout-tab .order-btn');
@@ -451,7 +539,10 @@ function submitCheckout() {
 
     apiFetch('/api/orders', jsonOptions(orderData))
     .then(result => {
-        tg.showAlert(`Заказ #${result.order_id} оформлен. К оплате: ${result.total} ₽`);
+        let promoNote = '';
+        if (result.promo_discount > 0) promoNote += ` Скидка по промокоду: ${result.promo_discount} ₽.`;
+        if (result.promo_bonus > 0) promoNote += ` После выполнения заказа начислим ${result.promo_bonus} бонусов.`;
+        tg.showAlert(`Заказ #${result.order_id} оформлен. К оплате: ${result.total} ₽.${promoNote}`);
         clearCart();
         if (nativeTelegram) tg.close();
         else showTab('catalog', document.querySelector('.tab-btn'));
@@ -552,7 +643,7 @@ function joinGiveaway(gw_id) {
 }
 
 function setAdminTabActive(btnId) {
-    ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw'].forEach(id => {
+    ['btn-adm-prod', 'btn-adm-stat', 'btn-adm-ord', 'btn-adm-usr', 'btn-adm-gw', 'btn-adm-promo'].forEach(id => {
         const el = document.getElementById(id); if(el) el.classList.remove('active');
     });
     document.getElementById(btnId).classList.add('active');
@@ -787,6 +878,109 @@ function resetAdminStatsFilters() {
     loadAdminStats({ city: 'Все', status: 'all' });
 }
 
+function openNewPromoForm() {
+    ['promo-code', 'promo-value', 'promo-starts-at', 'promo-expires-at'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('promo-type').value = 'percent';
+    document.getElementById('promo-max-discount').value = '0';
+    document.getElementById('promo-min-order').value = '0';
+    document.getElementById('promo-max-uses').value = '0';
+    document.getElementById('promo-user-limit').value = '1';
+    document.getElementById('promo-city').value = '';
+    updatePromoTypeFields();
+    document.getElementById('adm-promo-modal').classList.remove('hidden');
+}
+
+function updatePromoTypeFields() {
+    const type = document.getElementById('promo-type').value;
+    const label = document.getElementById('promo-value-label');
+    const input = document.getElementById('promo-value');
+    const cap = document.getElementById('promo-max-discount-group');
+    if (type === 'percent') {
+        label.textContent = 'Размер скидки, %';
+        input.placeholder = '10';
+        cap.classList.remove('hidden');
+    } else if (type === 'fixed') {
+        label.textContent = 'Размер скидки, ₽';
+        input.placeholder = '300';
+        cap.classList.add('hidden');
+    } else {
+        label.textContent = 'Сколько бонусов начислить после выполнения заказа';
+        input.placeholder = '200';
+        cap.classList.add('hidden');
+    }
+}
+
+function promoTypeName(type) {
+    return ({ percent: 'Скидка %', fixed: 'Скидка ₽', bonus: 'Бонусы' })[type] || 'Старый тип';
+}
+
+function loadAdminPromos() {
+    setAdminTabActive('btn-adm-promo');
+    apiFetch(`/api/admin/promocodes?admin_id=${getMyId()}`)
+        .then(data => {
+            let html = `<button class="order-btn" style="margin-bottom:15px;" onclick="openNewPromoForm()">🎟 Создать промокод</button>`;
+            if (!data.length) html += '<div class="info-card" style="text-align:center;color:var(--gray);">Промокодов пока нет</div>';
+            data.forEach(promo => {
+                const value = promo.type === 'percent' ? `${promo.value}%` : `${Number(promo.value).toLocaleString('ru-RU')} ${promo.type === 'bonus' ? 'бонусов' : '₽'}`;
+                const uses = promo.max_uses ? `${promo.uses_count}/${promo.max_uses}` : (promo.uses_left === -1 ? `${promo.uses_count} · без лимита` : `осталось ${promo.uses_left}`);
+                const restrictions = [];
+                if (promo.min_order > 0) restrictions.push(`от ${Number(promo.min_order).toLocaleString('ru-RU')} ₽`);
+                if (promo.type === 'percent' && promo.max_discount > 0) restrictions.push(`макс. скидка ${Number(promo.max_discount).toLocaleString('ru-RU')} ₽`);
+                if (promo.per_user_limit > 0) restrictions.push(`до ${promo.per_user_limit} на клиента`);
+                if (promo.city) restrictions.push(promo.city);
+                if (promo.expires_at) restrictions.push(`до ${escapeHtml(formatGiveawayDate(promo.expires_at))}`);
+                const active = promo.is_active && promo.supported;
+                const toggleAction = promo.supported ? `<button class="outline-btn" onclick="setPromoActive('${escapeHtml(promo.code)}',${active ? 'false' : 'true'})">${active ? 'Выключить' : 'Включить'}</button>` : '';
+                html += `<article class="info-card promo-admin-card" style="margin-bottom:10px;transform:none;">
+                    <div class="promo-admin-head"><div><b class="promo-admin-code">${escapeHtml(promo.code)}</b><span class="promo-admin-type">${promoTypeName(promo.type)} · ${escapeHtml(value)}</span></div>
+                    <span class="promo-state ${active ? 'active' : ''}">${active ? 'Активен' : (promo.supported ? 'Выключен' : 'Не поддерживается')}</span></div>
+                    <div class="promo-admin-meta">Использований: <b>${escapeHtml(uses)}</b>${restrictions.length ? `<br>${escapeHtml(restrictions.join(' · '))}` : ''}${promo.starts_at ? `<br>Начало: ${escapeHtml(formatGiveawayDate(promo.starts_at))}` : ''}</div>
+                    <div class="promo-admin-actions">${toggleAction}<button class="outline-btn" onclick="deletePromoCode('${escapeHtml(promo.code)}')">Удалить</button></div>
+                </article>`;
+            });
+            document.getElementById('admin-workspace').innerHTML = html;
+        })
+        .catch(showAdminError);
+}
+
+function submitNewPromo() {
+    const value = Number(document.getElementById('promo-value').value);
+    const type = document.getElementById('promo-type').value;
+    const startsAt = datetimeLocalToEpoch(document.getElementById('promo-starts-at').value);
+    const expiresAt = datetimeLocalToEpoch(document.getElementById('promo-expires-at').value);
+    if (!document.getElementById('promo-code').value.trim()) return tg.showAlert('Введите код промокода.');
+    if (!(value > 0) || (type === 'percent' && value > 100)) return tg.showAlert('Проверьте размер скидки или бонуса.');
+    if (startsAt && expiresAt && expiresAt <= startsAt) return tg.showAlert('Дата окончания должна быть позже даты начала.');
+    const data = {
+        code: document.getElementById('promo-code').value.trim().toUpperCase(),
+        type,
+        value,
+        max_uses: parseInt(document.getElementById('promo-max-uses').value, 10) || 0,
+        per_user_limit: parseInt(document.getElementById('promo-user-limit').value, 10) || 0,
+        min_order: Number(document.getElementById('promo-min-order').value) || 0,
+        max_discount: type === 'percent' ? (Number(document.getElementById('promo-max-discount').value) || 0) : 0,
+        city: document.getElementById('promo-city').value || null,
+        starts_at: startsAt,
+        expires_at: expiresAt
+    };
+    apiFetch(`/api/admin/promocodes?admin_id=${getMyId()}`, jsonOptions(data))
+        .then(() => { closeAdmModal('adm-promo-modal'); loadAdminPromos(); })
+        .catch(error => tg.showAlert(`Не удалось создать промокод: ${error.message}`));
+}
+
+function setPromoActive(code, is_active) {
+    apiFetch(`/api/admin/promocodes/${encodeURIComponent(code)}?admin_id=${getMyId()}`, jsonOptions({ is_active }, 'PATCH'))
+        .then(loadAdminPromos)
+        .catch(error => tg.showAlert(`Не удалось изменить промокод: ${error.message}`));
+}
+
+function deletePromoCode(code) {
+    if (!confirm(`Удалить промокод ${code}?`)) return;
+    apiFetch(`/api/admin/promocodes/${encodeURIComponent(code)}?admin_id=${getMyId()}`, { method: 'DELETE' })
+        .then(loadAdminPromos)
+        .catch(error => tg.showAlert(`Не удалось удалить промокод: ${error.message}`));
+}
+
 function loadAdminOrders() {
     setAdminTabActive('btn-adm-ord');
     apiFetch(`/api/admin/orders?admin_id=${getMyId()}`)
@@ -818,6 +1012,7 @@ function loadAdminOrders() {
                     </div>
                     <p style="margin:8px 0 4px 0; font-size:13px;"><b>Клиент:</b> ${escapeHtml(o.user_name)} (ID: ${o.user_id})</p>
                     <p style="margin:4px 0; font-size:13px;"><b>Сумма:</b> <span style="color:var(--text); font-weight:bold;">${o.total}₽</span></p>
+                    ${o.promo_code ? `<p style="margin:4px 0; font-size:12px; color:var(--gray);"><b>Промокод:</b> ${escapeHtml(o.promo_code)}${o.promo_discount > 0 ? ` · скидка ${o.promo_discount} ₽` : ''}${o.promo_bonus > 0 ? ` · +${o.promo_bonus} бонусов после выполнения` : ''}</p>` : ''}
                     
                     ${itemsHtml}
                     
