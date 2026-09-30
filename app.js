@@ -1,4 +1,22 @@
 const nativeTelegram = window.Telegram?.WebApp;
+const CART_STORAGE_KEY = 'vapebar_cart';
+const LEGACY_CART_STORAGE_KEY = 'vapelab_cart';
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+});
+
+function isIOSDevice() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isStandaloneApp() {
+    return window.navigator.standalone === true
+        || window.matchMedia?.('(display-mode: standalone)').matches === true;
+}
+
 const tg = nativeTelegram || {
     initDataUnsafe: {},
     HapticFeedback: { impactOccurred() {}, selectionChanged() {} },
@@ -63,6 +81,18 @@ function persistCity() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    const installButton = document.getElementById('install-app-button');
+    const installHint = document.getElementById('install-app-hint');
+    if (isStandaloneApp()) {
+        if (installButton) { installButton.textContent = 'Приложение уже установлено'; installButton.disabled = true; }
+        if (installHint) installHint.textContent = 'VapeBar запущен как приложение с главного экрана.';
+    } else if (isIOSDevice()) {
+        if (installButton) installButton.textContent = tg.initData ? 'Открыть сайт в браузере' : 'Как установить на экран';
+        if (installHint) installHint.textContent = 'На iPhone сайт добавляется из Safari: «Поделиться» → «На экран Домой» → включите «Открыть как веб-приложение». ';
+    } else if (installHint) {
+        installHint.textContent = 'Добавьте магазин на главный экран из меню браузера или Telegram для быстрого доступа.';
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const urlUid = urlParams.get('uid');
     let urlName = urlParams.get('name') || "Гость";
@@ -122,15 +152,16 @@ async function loadCatalog() {
 }
 
 function saveCart() {
-    try { localStorage.setItem('vapelab_cart', JSON.stringify(cart)); }
+    try { localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); }
     catch (error) { console.warn('Не удалось сохранить корзину на устройстве:', error); }
 }
 function loadCart() {
     try {
-        const saved = localStorage.getItem('vapelab_cart');
+        const saved = localStorage.getItem(CART_STORAGE_KEY) || localStorage.getItem(LEGACY_CART_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed)) cart = parsed.filter(item => item && Number.isFinite(Number(item.id)) && Number.isFinite(Number(item.price)));
+            if (!localStorage.getItem(CART_STORAGE_KEY)) saveCart();
         }
     }
     catch (e) {}
@@ -585,15 +616,37 @@ function loadProfileData() {
             if(uCb) uCb.innerText = `Кэшбек: ${data.cashback_pct}%`;
             const uRefs = document.getElementById('u-refs');
             if(uRefs) uRefs.innerText = `${data.refs} чел.`;
+            const uChannelRefs = document.getElementById('u-channel-refs');
+            if(uChannelRefs) uChannelRefs.innerText = `${data.channel_refs || 0} чел.`;
             
             const uRefLink = document.getElementById('u-ref-link');
             if(uRefLink && data.ref_link) uRefLink.value = data.ref_link;
+
+            const channelRefLink = document.getElementById('u-channel-ref-link');
+            const channelRefCopy = document.getElementById('u-channel-ref-copy');
+            const channelRefStatus = document.getElementById('u-channel-ref-status');
+            if (channelRefLink) {
+                apiFetch('/api/referrals/channel-link', jsonOptions({ user_id: userId }))
+                    .then(result => {
+                        channelRefLink.value = result.invite_link;
+                        if (channelRefCopy) channelRefCopy.disabled = false;
+                        if (channelRefStatus) channelRefStatus.textContent = '';
+                    })
+                    .catch(error => {
+                        channelRefLink.value = '';
+                        channelRefLink.placeholder = 'Ссылка пока не настроена';
+                        if (channelRefCopy) channelRefCopy.disabled = true;
+                        if (channelRefStatus) channelRefStatus.textContent = 'Администратору нужно настроить канал и права бота.';
+                        console.warn('Не удалось получить реферальную ссылку канала:', error.message);
+                    });
+            }
         })
         .catch(error => console.warn('Не удалось загрузить профиль:', error));
 }
 
-async function copyRefLink() {
-    const linkInput = document.getElementById('u-ref-link');
+async function copyRefLink(inputId = 'u-ref-link') {
+    const linkInput = document.getElementById(inputId);
+    if (!linkInput?.value) return tg.showAlert('Ссылка пока недоступна.');
     try {
         await navigator.clipboard.writeText(linkInput.value);
     } catch {
@@ -1186,9 +1239,28 @@ function resetCard(card) {
 }
 
 function installApp() {
-    if (tg.addToHomeScreen) {
+    if (isStandaloneApp()) return tg.showAlert('VapeBar уже добавлен на главный экран.');
+    if (isIOSDevice()) {
+        const installHelp = 'В Safari нажмите «Поделиться» → «На экран Домой», включите «Открыть как веб-приложение» и нажмите «Добавить».';
+        if (tg.initData && typeof tg.openLink === 'function') {
+            tg.openLink(`${window.location.origin}/`);
+            tg.showAlert(`Открыл сайт во внешнем браузере. ${installHelp}`);
+        } else {
+            tg.showAlert(installHelp);
+        }
+        return;
+    }
+
+    if (deferredInstallPrompt) {
+        const prompt = deferredInstallPrompt;
+        deferredInstallPrompt = null;
+        prompt.prompt();
+        prompt.userChoice.then(choice => {
+            if (choice.outcome === 'accepted') tg.showAlert('VapeBar добавлен на рабочий стол.');
+        }).catch(() => {});
+    } else if (tg.initData && typeof tg.addToHomeScreen === 'function') {
         tg.addToHomeScreen();
     } else {
-        tg.showAlert("Ваша версия Telegram не поддерживает быструю установку на рабочий стол. Пожалуйста, обновите приложение.");
+        tg.showAlert('Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран».');
     }
 }
