@@ -178,28 +178,15 @@
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px;">
                 Пригласите друга в бота — получите <b>10 баллов</b> за его первую регистрацию и ещё <b>50 баллов</b> за первый выполненный заказ от 500 ₽.
             </p>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
                 <span style="color: white; font-size: 14px;">Приглашено в бота:</span>
                 <b id="u-refs" style="font-size: 18px; color: var(--accent);">0 чел.</b>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
-                <span style="color: white; font-size: 14px;">Приглашено в канал:</span>
-                <b id="u-channel-refs" style="font-size: 18px; color: var(--accent);">0 чел.</b>
             </div>
             <label for="u-ref-link" style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Ссылка для приглашения в бота:</label>
             <div style="display: flex; gap: 10px;">
                 <input type="text" id="u-ref-link" class="form-input" readonly style="color: var(--accent); font-size: 13px; flex: 1;">
                 <button onclick="copyRefLink('u-ref-link')" class="icon-btn"><i class="fa-regular fa-copy"></i></button>
             </div>
-            <p style="margin:16px 0 8px; color:var(--gray); line-height:1.5; font-size:13px;">
-                Пригласите друга в канал. Если он затем оформит первый выполненный заказ от 500 ₽, вы получите <b>50 баллов</b>. Повторные входы и выходы не дают повторных бонусов.
-            </p>
-            <label for="u-channel-ref-link" style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Персональная ссылка в канал:</label>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="u-channel-ref-link" class="form-input" readonly placeholder="Загрузка ссылки…" style="color: var(--accent); font-size: 13px; flex: 1;">
-                <button id="u-channel-ref-copy" onclick="copyRefLink('u-channel-ref-link')" class="icon-btn" disabled><i class="fa-regular fa-copy"></i></button>
-            </div>
-            <small id="u-channel-ref-status" class="form-hint" aria-live="polite"></small>
         </div>
 
         <h3 class="sub-title">📱 Приложение</h3>
