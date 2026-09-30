@@ -4,8 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#10090d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VapeBar">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="description" content="VapeBar — каталог, бонусы и оформление заказа в Telegram.">
     <title>VapeBar — магазин</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -65,6 +71,7 @@
             <button class="c-btn" onclick="filterCat('Устройства', this)">Девайсы</button>
             <button class="c-btn" onclick="filterCat('Расходники', this)">Расходники</button>
             <button class="c-btn" onclick="filterCat('Снюс', this)">Снюс</button>
+            <button class="c-btn" onclick="filterCat('Ватки', this)">Ватки</button>
         </div>
         <div id="product-grid" class="grid" aria-live="polite"></div>
     </section>
@@ -169,25 +176,38 @@
         <h3 class="sub-title">🤝 Реферальная программа</h3>
         <div class="info-card" style="margin-bottom: 20px;">
             <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px;">
-                Приглашайте друзей и получайте <b>5%</b> от суммы каждого их успешного заказа на свой бонусный баланс!
+                Пригласите друга в бота — получите <b>10 баллов</b> за его первую регистрацию и ещё <b>50 баллов</b> за первый выполненный заказ от 500 ₽.
             </p>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
-                <span style="color: white; font-size: 14px;">Вы пригласили:</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="color: white; font-size: 14px;">Приглашено в бота:</span>
                 <b id="u-refs" style="font-size: 18px; color: var(--accent);">0 чел.</b>
             </div>
-            <label style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Ваша ссылка для приглашения:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
+                <span style="color: white; font-size: 14px;">Приглашено в канал:</span>
+                <b id="u-channel-refs" style="font-size: 18px; color: var(--accent);">0 чел.</b>
+            </div>
+            <label for="u-ref-link" style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Ссылка для приглашения в бота:</label>
             <div style="display: flex; gap: 10px;">
                 <input type="text" id="u-ref-link" class="form-input" readonly style="color: var(--accent); font-size: 13px; flex: 1;">
-                <button onclick="copyRefLink()" class="icon-btn"><i class="fa-regular fa-copy"></i></button>
+                <button onclick="copyRefLink('u-ref-link')" class="icon-btn"><i class="fa-regular fa-copy"></i></button>
             </div>
+            <p style="margin:16px 0 8px; color:var(--gray); line-height:1.5; font-size:13px;">
+                Пригласите друга в канал. Если он затем оформит первый выполненный заказ от 500 ₽, вы получите <b>50 баллов</b>. Повторные входы и выходы не дают повторных бонусов.
+            </p>
+            <label for="u-channel-ref-link" style="color: var(--gray); font-size: 12px; display: block; margin-bottom: 8px;">Персональная ссылка в канал:</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="u-channel-ref-link" class="form-input" readonly placeholder="Загрузка ссылки…" style="color: var(--accent); font-size: 13px; flex: 1;">
+                <button id="u-channel-ref-copy" onclick="copyRefLink('u-channel-ref-link')" class="icon-btn" disabled><i class="fa-regular fa-copy"></i></button>
+            </div>
+            <small id="u-channel-ref-status" class="form-hint" aria-live="polite"></small>
         </div>
 
         <h3 class="sub-title">📱 Приложение</h3>
         <div class="info-card" id="install-card" style="text-align: center; margin-bottom: 20px;">
-            <p style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px; margin-bottom: 15px;">
-                Установите магазин на рабочий стол телефона для быстрого доступа в 1 клик!
+            <p id="install-app-hint" style="margin-top:0; color: var(--gray); line-height: 1.5; font-size: 13px; margin-bottom: 15px;">
+                Добавьте магазин на главный экран, чтобы открывать его как приложение.
             </p>
-            <button onclick="installApp()" class="outline-btn">📲 Добавить на рабочий стол</button>
+            <button id="install-app-button" onclick="installApp()" class="outline-btn">📲 Добавить на рабочий стол</button>
         </div>
 
         <h3 class="sub-title">🎁 Актуальные розыгрыши</h3>
