@@ -109,6 +109,20 @@
                     <option value="Наличные">Наличными при получении</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="co-promocode">Промокод</label>
+                <div class="promo-input-row">
+                    <input type="text" id="co-promocode" class="form-input" placeholder="Введите код" autocomplete="off" oninput="clearAppliedPromo()">
+                    <button type="button" class="outline-btn" id="co-promo-apply" onclick="applyPromoCode()">Применить</button>
+                </div>
+                <small id="co-promo-status" class="form-hint" aria-live="polite"></small>
+            </div>
+            <div class="checkout-total-summary">
+                <div><span>Товары</span><b id="co-subtotal">0 ₽</b></div>
+                <div><span>Скидка</span><b id="co-promo-discount">0 ₽</b></div>
+                <div><span>Списать бонусами</span><b id="co-bonus-total">0 ₽</b></div>
+                <div class="checkout-total-due"><span>К оплате</span><b id="co-final-total">0 ₽</b></div>
+            </div>
             <div class="form-group checkbox-group">
                 <input type="checkbox" id="co-age">
                 <label for="co-age">Подтверждаю, что мне есть 18 лет</label>
@@ -192,6 +206,7 @@
             <button class="c-btn" id="btn-adm-ord" onclick="loadAdminOrders()"><i class="fa-solid fa-receipt"></i> Заказы</button>
             <button class="c-btn" id="btn-adm-usr" onclick="loadAdminUsers()"><i class="fa-solid fa-users"></i> Клиенты</button>
             <button class="c-btn" id="btn-adm-gw" onclick="loadAdminGiveaways()"><i class="fa-solid fa-gift"></i> Розыгрыши</button>
+            <button class="c-btn" id="btn-adm-promo" onclick="loadAdminPromos()"><i class="fa-solid fa-ticket"></i> Промокоды</button>
         </div>
         <div id="admin-workspace" class="admin-workspace">
             <p style="text-align:center; color:var(--gray);">Загрузка панели...</p>
@@ -347,6 +362,67 @@
             </div>
             <button class="order-btn" onclick="submitNewGiveaway()">Создать и запустить</button>
             <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-gw-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adm-promo-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color:var(--accent); margin-top:0;">🎟 Новый промокод</h3>
+            <div class="form-group">
+                <label for="promo-code">Код</label>
+                <input type="text" id="promo-code" class="form-input" maxlength="24" placeholder="Например: VAPE10" autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+                <small class="form-hint">3–24 символа: латиница, цифры, дефис или подчёркивание.</small>
+            </div>
+            <div class="form-group">
+                <label for="promo-type">Тип награды</label>
+                <select id="promo-type" class="form-input" onchange="updatePromoTypeFields()">
+                    <option value="percent">Скидка в процентах</option>
+                    <option value="fixed">Скидка в рублях</option>
+                    <option value="bonus">Бонусы после выполнения заказа</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label id="promo-value-label" for="promo-value">Размер скидки, %</label>
+                <input type="number" id="promo-value" class="form-input" min="0.01" step="0.01" placeholder="10">
+            </div>
+            <div class="form-group" id="promo-max-discount-group">
+                <label for="promo-max-discount">Максимальная скидка, ₽ (0 — без ограничения)</label>
+                <input type="number" id="promo-max-discount" class="form-input" min="0" step="1" value="0">
+            </div>
+            <div class="form-group">
+                <label for="promo-min-order">Минимальная сумма товаров, ₽ (0 — без минимума)</label>
+                <input type="number" id="promo-min-order" class="form-input" min="0" step="1" value="0">
+            </div>
+            <div class="promo-form-grid">
+                <div class="form-group">
+                    <label for="promo-max-uses">Всего активаций (0 — без лимита)</label>
+                    <input type="number" id="promo-max-uses" class="form-input" min="0" step="1" value="0">
+                </div>
+                <div class="form-group">
+                    <label for="promo-user-limit">На одного клиента (0 — без лимита)</label>
+                    <input type="number" id="promo-user-limit" class="form-input" min="0" step="1" value="1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="promo-city">Город</label>
+                <select id="promo-city" class="form-input">
+                    <option value="">Любой город</option>
+                    <option value="Междуреченск">Междуреченск</option>
+                    <option value="Мыски">Мыски</option>
+                </select>
+            </div>
+            <div class="promo-form-grid">
+                <div class="form-group">
+                    <label for="promo-starts-at">Действует с</label>
+                    <input type="datetime-local" id="promo-starts-at" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="promo-expires-at">Действует до</label>
+                    <input type="datetime-local" id="promo-expires-at" class="form-input">
+                </div>
+            </div>
+            <button class="order-btn" onclick="submitNewPromo()">Создать промокод</button>
+            <button class="outline-btn" style="margin-top:10px;" onclick="closeAdmModal('adm-promo-modal')">Отмена</button>
         </div>
     </div>
 
