@@ -129,6 +129,28 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .form-group { margin: 0 0 15px; }
 .form-group > label, .form-group label { display: block; margin-bottom: 7px; color: #c8b8bd; font-size: 12px; font-weight: 600; }
 .form-hint { display: block; margin-top: 7px; color: var(--gray); font-size: 11px; }
+.promo-input-row { display: flex; gap: 8px; }
+.promo-input-row .form-input { min-width: 0; flex: 1; text-transform: uppercase; }
+.promo-input-row .outline-btn { flex: 0 0 auto; width: auto; min-height: 45px; padding: 9px 13px; }
+#co-promo-status:empty { display: none; }
+.checkout-total-summary { display: grid; gap: 8px; margin: 5px 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(0,0,0,.16); font-size: 12px; }
+.checkout-total-summary > div { display: flex; justify-content: space-between; gap: 12px; color: var(--gray); }
+.checkout-total-summary b { color: var(--text); text-align: right; }
+.checkout-total-summary .checkout-total-due { margin-top: 3px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text); font-size: 14px; font-weight: 800; }
+.checkout-total-summary .checkout-total-due b { color: var(--accent); }
+.promo-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.promo-form-grid .form-group { min-width: 0; }
+.promo-form-grid .form-input { min-width: 0; padding: 10px 8px; font-size: 11px; }
+.promo-admin-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.promo-admin-code { display: block; color: var(--text); font: 800 15px 'Manrope',sans-serif; overflow-wrap: anywhere; }
+.promo-admin-type { display: block; margin-top: 4px; color: var(--accent); font-size: 12px; font-weight: 700; }
+.promo-state { flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--border); border-radius: 99px; color: var(--gray); font-size: 10px; font-weight: 700; }
+.promo-state.active { border-color: rgba(255,83,104,.28); background: var(--accent-glow); color: var(--accent); }
+.promo-admin-meta { margin-top: 11px; color: var(--gray); font-size: 11px; line-height: 1.6; }
+.promo-admin-meta b { color: var(--text); }
+.promo-admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.promo-admin-actions .outline-btn { min-height: 40px; padding: 8px; font-size: 11px; }
+.promo-admin-actions .outline-btn:only-child { grid-column: 1 / -1; }
 .gw-condition-fields { margin: 0 0 15px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: rgba(0,0,0,.12); }
 .gw-condition-fields > .form-group:last-child { margin-bottom: 0; }
 .gw-period-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
